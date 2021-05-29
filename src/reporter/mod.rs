@@ -1,4 +1,4 @@
-use diagnostic::{FileDiagnostic, Label, LabelStyle, VoidDiagnostic};
+use diagnostic::{FileDiagnostic, VoidDiagnostic};
 use file::{File, Void};
 use std::path::Path;
 
@@ -40,13 +40,11 @@ impl VoidReporter {
     }
 
     pub fn emit(&self, diagnostic: VoidDiagnostic) {
-        let codespan_diagnostic =
-            codespan_reporting::diagnostic::Diagnostic::error().with_message(diagnostic.message());
         let _ = codespan_reporting::term::emit(
             &mut self.writer.lock(),
             &self.config,
             &Void,
-            &codespan_diagnostic,
+            &diagnostic.into(),
         );
     }
 }
@@ -66,38 +64,11 @@ impl<'a> FileReporter<'a> {
     }
 
     pub fn emit(&self, diagnostic: FileDiagnostic) {
-        let codespan_diagnostic = codespan_reporting::diagnostic::Diagnostic::error()
-            .with_message(diagnostic.message())
-            .with_labels(
-                diagnostic
-                    .labels()
-                    .map(
-                        |label: Label| -> codespan_reporting::diagnostic::Label<()> {
-                            match label.style {
-                                LabelStyle::Primary => {
-                                    codespan_reporting::diagnostic::Label::primary(
-                                        (),
-                                        label.span.from.offset..label.span.to.offset,
-                                    )
-                                    .with_message(&label.message)
-                                }
-                                LabelStyle::Secondary => {
-                                    codespan_reporting::diagnostic::Label::secondary(
-                                        (),
-                                        label.span.from.offset..label.span.to.offset,
-                                    )
-                                    .with_message(&label.message)
-                                }
-                            }
-                        },
-                    )
-                    .collect(),
-            );
         let _ = codespan_reporting::term::emit(
             &mut self.writer.lock(),
             &self.config,
             &self.file,
-            &codespan_diagnostic,
+            &diagnostic.into(),
         );
     }
 }

@@ -1,6 +1,17 @@
 use super::VoidDiagnostic;
 use crate::{argument_parser, reader, writer};
 
+impl From<crate::InternalAssemblerError> for VoidDiagnostic {
+    fn from(error: crate::InternalAssemblerError) -> Self {
+        VoidDiagnostic::bug()
+            .with_message(format!("internal assembler error: {}", error.message))
+            .with_note("The assembler unexpectedly panicked. This is a bug.")
+            .with_note(
+                "We would appreciate a bug report: https://github.com/karolbelina/ruxnasm/issues",
+            )
+    }
+}
+
 impl From<argument_parser::Error> for VoidDiagnostic {
     fn from(error: argument_parser::Error) -> Self {
         match error {
