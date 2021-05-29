@@ -1,5 +1,7 @@
-use super::VoidDiagnostic;
+use super::diagnostic::{Label, LabelStyle};
+use super::{FileDiagnostic, VoidDiagnostic};
 use crate::{argument_parser, reader, writer};
+use ruxnasm::tokenizer;
 
 impl From<crate::InternalAssemblerError> for VoidDiagnostic {
     fn from(error: crate::InternalAssemblerError) -> Self {
@@ -57,6 +59,88 @@ impl From<writer::Error> for VoidDiagnostic {
                 file_path.to_string_lossy(),
                 io_error
             )),
+        }
+    }
+}
+
+impl From<ruxnasm::Error> for FileDiagnostic {
+    fn from(error: ruxnasm::Error) -> Self {
+        match error {
+            ruxnasm::Error::Tokenizer(error) => error.into(),
+        }
+    }
+}
+
+impl From<tokenizer::Error> for FileDiagnostic {
+    fn from(error: tokenizer::Error) -> Self {
+        match error {
+            tokenizer::Error::IdentifierExpected { span } => FileDiagnostic::error()
+                .with_message("expected an identifier")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            tokenizer::Error::HexNumberExpected { span } => FileDiagnostic::error()
+                .with_message("expected a hexadecimal number")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            tokenizer::Error::HexDigitInvalid { digit, span } => FileDiagnostic::error()
+                .with_message(format!("invalid hexadecimal digit `{}`", digit))
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            tokenizer::Error::HexNumberUnevenLength { span } => FileDiagnostic::error()
+                .with_message(format!("uneven number of digits in a hexadecimal number"))
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                })
+                .with_note("help: pad the number with zeros"),
+            tokenizer::Error::HexNumberTooLarge { length: _, span } => FileDiagnostic::error()
+                .with_message(format!("hexadecimal number is too large"))
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            tokenizer::Error::CharacterExpected { span } => FileDiagnostic::error()
+                .with_message("expected a character")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            tokenizer::Error::CharacterSequenceExpected { span } => FileDiagnostic::error()
+                .with_message("expected a character")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            tokenizer::Error::InstructionInvalid { instruction, span } => FileDiagnostic::error()
+                .with_message(format!("invalid instruction '{}'", instruction))
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            tokenizer::Error::InstructionModeInvalid {
+                instruction_mode,
+                span,
+            } => FileDiagnostic::error()
+                .with_message(format!("invalid instruction mode '{}'", instruction_mode))
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
         }
     }
 }

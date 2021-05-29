@@ -122,6 +122,11 @@ impl<'a> FileDiagnostic {
         self.additional_labels.push(label);
         self
     }
+
+    pub fn with_note(mut self, note: impl Into<String>) -> Self {
+        self.notes.push(note.into());
+        self
+    }
 }
 
 #[derive(Debug, Copy, Clone)]

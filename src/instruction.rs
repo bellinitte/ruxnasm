@@ -1,4 +1,14 @@
-use std::str::FromStr;
+use super::{impl_spanning, Span, Spanned, Spanning};
+
+#[derive(Debug, Copy, Clone)]
+pub struct Instruction {
+    pub instruction_kind: InstructionKind,
+    pub keep: bool,
+    pub r#return: bool,
+    pub short: bool,
+}
+
+impl_spanning!(Instruction);
 
 #[derive(Debug, Copy, Clone)]
 pub enum InstructionKind {
@@ -71,48 +81,6 @@ impl From<InstructionKind> for u8 {
             InstructionKind::Or => 0x1d,
             InstructionKind::ExclusiveOr => 0x1e,
             InstructionKind::Shift => 0x1f,
-        }
-    }
-}
-
-impl FromStr for InstructionKind {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "BRK" => Ok(InstructionKind::Break),
-            "LIT" => Ok(InstructionKind::Literal),
-            "NOP" => Ok(InstructionKind::NoOperation),
-            "POP" => Ok(InstructionKind::Pop),
-            "DUP" => Ok(InstructionKind::Duplicate),
-            "SWP" => Ok(InstructionKind::Swap),
-            "OVR" => Ok(InstructionKind::Over),
-            "ROT" => Ok(InstructionKind::Rotate),
-            "EQU" => Ok(InstructionKind::Equal),
-            "NEQ" => Ok(InstructionKind::NotEqual),
-            "GTH" => Ok(InstructionKind::GreaterThan),
-            "LTH" => Ok(InstructionKind::LesserThan),
-            "JMP" => Ok(InstructionKind::Jump),
-            "JCN" => Ok(InstructionKind::JumpCondition),
-            "JSR" => Ok(InstructionKind::JumpStash),
-            "STH" => Ok(InstructionKind::Stash),
-            "LDZ" => Ok(InstructionKind::LoadZeroPage),
-            "STZ" => Ok(InstructionKind::StoreZeroPage),
-            "LDR" => Ok(InstructionKind::LoadRelative),
-            "STR" => Ok(InstructionKind::StoreRelative),
-            "LDA" => Ok(InstructionKind::LoadAbsolute),
-            "STA" => Ok(InstructionKind::StoreAbsolute),
-            "DEI" => Ok(InstructionKind::DeviceIn),
-            "DEO" => Ok(InstructionKind::DeviceOut),
-            "ADD" => Ok(InstructionKind::Add),
-            "SUB" => Ok(InstructionKind::Subtract),
-            "MUL" => Ok(InstructionKind::Multiply),
-            "DIV" => Ok(InstructionKind::Divide),
-            "AND" => Ok(InstructionKind::And),
-            "ORA" => Ok(InstructionKind::Or),
-            "EOR" => Ok(InstructionKind::ExclusiveOr),
-            "SFT" => Ok(InstructionKind::Shift),
-            _ => Err(()),
         }
     }
 }
