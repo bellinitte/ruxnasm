@@ -3,6 +3,7 @@ use file::{File, Void};
 use std::path::Path;
 
 mod diagnostic;
+mod display;
 mod file;
 
 pub struct VoidReporter {
@@ -38,7 +39,7 @@ impl VoidReporter {
         }
     }
 
-    pub fn write(&self, diagnostic: VoidDiagnostic) {
+    pub fn emit(&self, diagnostic: VoidDiagnostic) {
         let codespan_diagnostic =
             codespan_reporting::diagnostic::Diagnostic::error().with_message(diagnostic.message());
         let _ = codespan_reporting::term::emit(
@@ -64,7 +65,7 @@ impl<'a> FileReporter<'a> {
         }
     }
 
-    pub fn write(&self, diagnostic: FileDiagnostic) {
+    pub fn emit(&self, diagnostic: FileDiagnostic) {
         let codespan_diagnostic = codespan_reporting::diagnostic::Diagnostic::error()
             .with_message(diagnostic.message())
             .with_labels(
