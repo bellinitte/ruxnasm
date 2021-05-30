@@ -1,4 +1,4 @@
-use super::Spanned;
+use super::{Span, Spanned, Spanning};
 use std::ops::{Range, RangeFrom, RangeFull, RangeTo};
 
 #[derive(Debug, Copy, Clone)]
@@ -7,12 +7,12 @@ pub struct Symbols<'a> {
 }
 
 impl<'a> Symbols<'a> {
-    pub fn get(&self, index: usize) -> Option<Spanned<char>> {
-        self.inner.get(index).cloned()
-    }
-
     pub fn first(&self) -> Option<Spanned<char>> {
         self.inner.first().cloned()
+    }
+
+    pub fn second(&self) -> Option<Spanned<char>> {
+        self.inner.get(1).cloned()
     }
 
     pub fn last(&self) -> Option<Spanned<char>> {
@@ -27,11 +27,28 @@ impl<'a> Symbols<'a> {
         self.inner.is_empty()
     }
 
+    pub fn position<P>(&self, predicate: P) -> Option<usize>
+    where
+        P: Fn(char) -> bool,
+    {
+        self.inner
+            .iter()
+            .position(|Spanned { node: ch, .. }| predicate(*ch))
+    }
+
     pub fn to_string(&self) -> String {
         self.inner
             .into_iter()
             .map(|Spanned { node: ch, .. }| *ch)
             .collect()
+    }
+
+    pub fn to_span(&self) -> Option<Span> {
+        Some(Span::combine(&self.first()?.span, &self.last()?.span))
+    }
+
+    pub fn to_spanned_string(&self) -> Option<Spanned<String>> {
+        self.to_span().map(|span| self.to_string().spanning(span))
     }
 }
 

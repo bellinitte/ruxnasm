@@ -74,6 +74,20 @@ impl From<ruxnasm::Error> for FileDiagnostic {
 impl From<tokenizer::Error> for FileDiagnostic {
     fn from(error: tokenizer::Error) -> Self {
         match error {
+            tokenizer::Error::MacroNameExpected { span } => FileDiagnostic::error()
+                .with_message("expected a macro name")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            tokenizer::Error::LabelExpected { span } => FileDiagnostic::error()
+                .with_message("expected an label name")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
             tokenizer::Error::IdentifierExpected { span } => FileDiagnostic::error()
                 .with_message("expected an identifier")
                 .with_label(Label {
@@ -117,84 +131,54 @@ impl From<tokenizer::Error> for FileDiagnostic {
                     message: String::new(),
                 })
                 .with_note("help: pad the number with zeros"),
-            tokenizer::Error::HexNumberTooLarge {
+            tokenizer::Error::HexNumberTooLong {
                 length,
                 number,
                 span,
             } => FileDiagnostic::error()
                 .with_message(format!(
-                    "hexadecimal number `{}` of length {} is too large",
-                    length, number
+                    "hexadecimal number `{}` of length {} is too long",
+                    number, length
                 ))
                 .with_label(Label {
                     style: LabelStyle::Primary,
                     span,
                     message: String::new(),
                 }),
-            tokenizer::Error::CharacterExpected { span } => FileDiagnostic::error()
-                .with_message("expected a character")
-                .with_label(Label {
-                    style: LabelStyle::Primary,
-                    span,
-                    message: String::new(),
-                }),
-            tokenizer::Error::InstructionInvalid { instruction, span } => FileDiagnostic::error()
-                .with_message(format!("invalid instruction '{}'", instruction))
-                .with_label(Label {
-                    style: LabelStyle::Primary,
-                    span,
-                    message: String::new(),
-                }),
-            tokenizer::Error::InstructionModeInvalid {
-                instruction_mode,
-                instruction,
-                span,
-            } => FileDiagnostic::error()
+            // tokenizer::Error::InstructionModeDefinedMoreThanOnce {
+            //     instruction_mode,
+            //     instruction,
+            //     span,
+            //     other_span,
+            // } => FileDiagnostic::error()
+            //     .with_message(format!(
+            //         "instruction mode `{}` is defined multiple times for instruction `{}`",
+            //         instruction_mode, instruction
+            //     ))
+            //     .with_label(Label {
+            //         style: LabelStyle::Primary,
+            //         span,
+            //         message: format!("mode `{}` redefined here", instruction_mode),
+            //     })
+            //     .with_label(Label {
+            //         style: LabelStyle::Secondary,
+            //         span: other_span,
+            //         message: format!("previous definition of mode `{}` here", instruction_mode),
+            //     }),
+            tokenizer::Error::MacroCannotBeAHexNumber { number, span } => FileDiagnostic::error()
                 .with_message(format!(
-                    "invalid instruction mode `{}` for instruction `{}`",
-                    instruction_mode, instruction
+                    "`{}` cannot be used as a macro name, as it is a valid hexadecimal number",
+                    number
                 ))
                 .with_label(Label {
                     style: LabelStyle::Primary,
                     span,
                     message: String::new(),
                 }),
-            tokenizer::Error::InstructionModeDefinedMoreThanOnce {
-                instruction_mode,
-                instruction,
-                span,
-                other_span,
-            } => FileDiagnostic::error()
-                .with_message(format!(
-                    "instruction mode `{}` is defined multiple times for instruction `{}`",
-                    instruction_mode, instruction
-                ))
-                .with_label(Label {
-                    style: LabelStyle::Primary,
-                    span,
-                    message: format!("mode `{}` redefined here", instruction_mode),
-                })
-                .with_label(Label {
-                    style: LabelStyle::Secondary,
-                    span: other_span,
-                    message: format!("previous definition of mode `{}` here", instruction_mode),
-                }),
-            tokenizer::Error::IdentifierCannotBeAHexNumber { number, span } => {
+            tokenizer::Error::MacroCannotBeAnInstruction { instruction, span } => {
                 FileDiagnostic::error()
                     .with_message(format!(
-                        "`{}` cannot be used as an identifier, as it is a valid hexadecimal number",
-                        number
-                    ))
-                    .with_label(Label {
-                        style: LabelStyle::Primary,
-                        span,
-                        message: String::new(),
-                    })
-            }
-            tokenizer::Error::IdentifierCannotBeAnInstruction { instruction, span } => {
-                FileDiagnostic::error()
-                    .with_message(format!(
-                        "`{}` cannot be used as an identifier, as it is a valid instruction",
+                        "`{}` cannot be used as a macro name, as it is a valid instruction",
                         instruction
                     ))
                     .with_label(Label {

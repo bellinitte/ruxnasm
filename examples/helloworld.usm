@@ -6,7 +6,7 @@
 
 |0100 ( -> )
 	
-	;hello-world 
+	;hello-world
 
 	&loop
 		( send ) LDAk .Console/char DEO

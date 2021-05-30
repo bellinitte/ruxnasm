@@ -1,6 +1,12 @@
 use super::Span;
 
 pub enum Error {
+    MacroNameExpected {
+        span: Span,
+    },
+    LabelExpected {
+        span: Span,
+    },
     IdentifierExpected {
         span: Span,
     },
@@ -17,34 +23,22 @@ pub enum Error {
         number: String,
         span: Span,
     },
-    HexNumberTooLarge {
+    HexNumberTooLong {
         length: usize,
         number: String,
         span: Span,
     },
-    CharacterExpected {
-        span: Span,
-    },
-    InstructionInvalid {
-        instruction: String,
-        span: Span,
-    },
-    InstructionModeInvalid {
-        instruction_mode: char,
-        instruction: String,
-        span: Span,
-    },
-    InstructionModeDefinedMoreThanOnce {
-        instruction_mode: char,
-        instruction: String,
-        span: Span,
-        other_span: Span,
-    },
-    IdentifierCannotBeAHexNumber {
+    // InstructionModeDefinedMoreThanOnce {
+    //     instruction_mode: char,
+    //     instruction: String,
+    //     span: Span,
+    //     other_span: Span,
+    // },
+    MacroCannotBeAHexNumber {
         number: String,
         span: Span,
     },
-    IdentifierCannotBeAnInstruction {
+    MacroCannotBeAnInstruction {
         instruction: String,
         span: Span,
     },
