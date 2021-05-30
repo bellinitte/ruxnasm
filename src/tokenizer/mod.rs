@@ -1,14 +1,15 @@
-use crate::{Instruction, InstructionKind};
-
-use super::Token;
+use super::{Breadcrumbs, Token};
 use super::{Location, Span, Spanned, Spanning};
+use crate::{Instruction, InstructionKind};
 pub use error::Error;
+use symbols::{Slice, Symbols};
 
 mod error;
+mod symbols;
 
 pub fn tokenize(input_file_contents: &str) -> Result<Vec<Spanned<Token>>, Vec<Error>> {
     let symbols = scan(input_file_contents);
-    let mut symbols = symbols.as_slice();
+    let mut symbols: Symbols = symbols.as_slice().into();
 
     let mut tokens = Vec::new();
     let mut errors = Vec::new();
@@ -17,24 +18,24 @@ pub fn tokenize(input_file_contents: &str) -> Result<Vec<Spanned<Token>>, Vec<Er
         'gap: loop {
             match symbols.first() {
                 Some(Spanned { node: c, .. }) if c.is_whitespace() => {
-                    symbols = &symbols[1..];
+                    symbols = symbols.slice(1..);
                 }
                 Some(Spanned {
                     node: '[' | ']', ..
                 }) => {
-                    symbols = &symbols[1..];
+                    symbols = symbols.slice(1..);
                 }
                 Some(Spanned { node: '(', .. }) => {
-                    symbols = &symbols[1..];
+                    symbols = symbols.slice(1..);
                     let mut comment = true;
                     while comment {
                         match symbols.first() {
                             Some(Spanned { node: ')', .. }) => {
-                                symbols = &symbols[1..];
+                                symbols = symbols.slice(1..);
                                 comment = false;
                             }
                             Some(_) => {
-                                symbols = &symbols[1..];
+                                symbols = symbols.slice(1..);
                             }
                             None => break 'gap,
                         }
@@ -45,14 +46,14 @@ pub fn tokenize(input_file_contents: &str) -> Result<Vec<Spanned<Token>>, Vec<Er
         }
         match symbols.first() {
             Some(Spanned { node: '{', span }) => {
-                symbols = &symbols[1..];
-                tokens.push(Token::OpeningBrace.spanning(*span));
+                symbols = symbols.slice(1..);
+                tokens.push(Token::OpeningBrace.spanning(span));
             }
             Some(Spanned { node: '}', span }) => {
-                symbols = &symbols[1..];
-                tokens.push(Token::ClosingBrace.spanning(*span));
+                symbols = symbols.slice(1..);
+                tokens.push(Token::ClosingBrace.spanning(span));
             }
-            Some(Spanned { node: '%', span }) => match parse_identifier(*span, &symbols[1..]) {
+            Some(Spanned { node: '%', span }) => match parse_identifier(span, symbols.slice(1..)) {
                 Ok((Spanned { node, span }, new_symbols)) => {
                     tokens.push(Token::MacroDefine(node).spanning(span));
                     symbols = new_symbols;
@@ -62,7 +63,7 @@ pub fn tokenize(input_file_contents: &str) -> Result<Vec<Spanned<Token>>, Vec<Er
                     symbols = new_symbols;
                 }
             },
-            Some(Spanned { node: '|', span }) => match parse_hex_number(*span, &symbols[1..]) {
+            Some(Spanned { node: '|', span }) => match parse_hex_number(span, symbols.slice(1..)) {
                 Ok((Spanned { node, span }, new_symbols, _)) => {
                     tokens.push(Token::PadAbsolute(node).spanning(span));
                     symbols = new_symbols;
@@ -72,7 +73,7 @@ pub fn tokenize(input_file_contents: &str) -> Result<Vec<Spanned<Token>>, Vec<Er
                     symbols = new_symbols;
                 }
             },
-            Some(Spanned { node: '$', span }) => match parse_hex_number(*span, &symbols[1..]) {
+            Some(Spanned { node: '$', span }) => match parse_hex_number(span, symbols.slice(1..)) {
                 Ok((Spanned { node, span }, new_symbols, _)) => {
                     tokens.push(Token::PadRelative(node).spanning(span));
                     symbols = new_symbols;
@@ -82,7 +83,7 @@ pub fn tokenize(input_file_contents: &str) -> Result<Vec<Spanned<Token>>, Vec<Er
                     symbols = new_symbols;
                 }
             },
-            Some(Spanned { node: '@', span }) => match parse_identifier(*span, &symbols[1..]) {
+            Some(Spanned { node: '@', span }) => match parse_identifier(span, symbols.slice(1..)) {
                 Ok((Spanned { node, span }, new_symbols)) => {
                     tokens.push(Token::LabelDefine(node).spanning(span));
                     symbols = new_symbols;
@@ -92,7 +93,7 @@ pub fn tokenize(input_file_contents: &str) -> Result<Vec<Spanned<Token>>, Vec<Er
                     symbols = new_symbols;
                 }
             },
-            Some(Spanned { node: '&', span }) => match parse_identifier(*span, &symbols[1..]) {
+            Some(Spanned { node: '&', span }) => match parse_identifier(span, symbols.slice(1..)) {
                 Ok((Spanned { node, span }, new_symbols)) => {
                     tokens.push(Token::SublabelDefine(node).spanning(span));
                     symbols = new_symbols;
@@ -103,21 +104,21 @@ pub fn tokenize(input_file_contents: &str) -> Result<Vec<Spanned<Token>>, Vec<Er
                 }
             },
             Some(Spanned { node: '#', span }) => {
-                symbols = &symbols[1..];
+                symbols = symbols.slice(1..);
                 match peek_word(symbols).len() {
-                    0 => errors.push(Error::HexNumberExpected { span: *span }),
+                    0 => errors.push(Error::HexNumberExpected { span }),
                     1 => {
                         let Spanned {
                             node: ch,
                             span: other_span,
                         } = symbols.first().unwrap();
                         tokens.push(
-                            Token::LiteralHexByte(*ch as u8)
-                                .spanning(Span::combine(span, other_span)),
+                            Token::LiteralHexByte(ch as u8)
+                                .spanning(Span::combine(&span, &other_span)),
                         );
-                        symbols = &symbols[1..];
+                        symbols = symbols.slice(1..);
                     }
-                    2 => match parse_hex_number(*span, symbols) {
+                    2 => match parse_hex_number(span, symbols) {
                         Ok((Spanned { node, span }, new_symbols, _)) => {
                             tokens.push(Token::LiteralHexByte(node as u8).spanning(span));
                             symbols = new_symbols;
@@ -127,14 +128,11 @@ pub fn tokenize(input_file_contents: &str) -> Result<Vec<Spanned<Token>>, Vec<Er
                             symbols = new_symbols;
                         }
                     },
-                    3 => match parse_hex_number(*span, symbols) {
+                    3 => match parse_hex_number(span, symbols) {
                         Ok((Spanned { span, .. }, new_symbols, parsed)) => {
                             errors.push(Error::HexNumberUnevenLength {
                                 length: 3,
-                                number: parsed
-                                    .into_iter()
-                                    .map(|Spanned { node: ch, .. }| *ch)
-                                    .collect(),
+                                number: parsed.to_string(),
                                 span,
                             });
                             symbols = new_symbols;
@@ -144,7 +142,7 @@ pub fn tokenize(input_file_contents: &str) -> Result<Vec<Spanned<Token>>, Vec<Er
                             symbols = new_symbols;
                         }
                     },
-                    4 => match parse_hex_number(*span, symbols) {
+                    4 => match parse_hex_number(span, symbols) {
                         Ok((Spanned { node, span }, new_symbols, _)) => {
                             tokens.push(Token::LiteralHexShort(node as u16).spanning(span));
                             symbols = new_symbols;
@@ -154,14 +152,11 @@ pub fn tokenize(input_file_contents: &str) -> Result<Vec<Spanned<Token>>, Vec<Er
                             symbols = new_symbols;
                         }
                     },
-                    length => match parse_hex_number(*span, symbols) {
+                    length => match parse_hex_number(span, symbols) {
                         Ok((Spanned { span, .. }, new_symbols, parsed)) => {
                             errors.push(Error::HexNumberTooLarge {
                                 length,
-                                number: parsed
-                                    .into_iter()
-                                    .map(|Spanned { node: ch, .. }| *ch)
-                                    .collect(),
+                                number: parsed.to_string(),
                                 span,
                             });
                             symbols = new_symbols;
@@ -173,75 +168,81 @@ pub fn tokenize(input_file_contents: &str) -> Result<Vec<Spanned<Token>>, Vec<Er
                     },
                 }
             }
-            Some(Spanned { node: '.', span }) => match parse_identifier(*span, &symbols[1..]) {
-                Ok((Spanned { node, span }, new_symbols)) => {
-                    tokens.push(Token::LiteralZeroPageAddress(node).spanning(span));
-                    symbols = new_symbols;
+            Some(Spanned { node: '.', span }) => {
+                match parse_breadcrumbs(span, symbols.slice(1..)) {
+                    Ok((Spanned { node, span }, new_symbols)) => {
+                        tokens.push(Token::LiteralZeroPageAddress(node).spanning(span));
+                        symbols = new_symbols;
+                    }
+                    Err((err, new_symbols)) => {
+                        errors.push(err);
+                        symbols = new_symbols;
+                    }
                 }
-                Err((err, new_symbols)) => {
-                    errors.push(err);
-                    symbols = new_symbols;
+            }
+            Some(Spanned { node: ',', span }) => {
+                match parse_breadcrumbs(span, symbols.slice(1..)) {
+                    Ok((Spanned { node, span }, new_symbols)) => {
+                        tokens.push(Token::LiteralRelativeAddress(node).spanning(span));
+                        symbols = new_symbols;
+                    }
+                    Err((err, new_symbols)) => {
+                        errors.push(err);
+                        symbols = new_symbols;
+                    }
                 }
-            },
-            Some(Spanned { node: ',', span }) => match parse_identifier(*span, &symbols[1..]) {
-                Ok((Spanned { node, span }, new_symbols)) => {
-                    tokens.push(Token::LiteralRelativeAddress(node).spanning(span));
-                    symbols = new_symbols;
+            }
+            Some(Spanned { node: ';', span }) => {
+                match parse_breadcrumbs(span, symbols.slice(1..)) {
+                    Ok((Spanned { node, span }, new_symbols)) => {
+                        tokens.push(Token::LiteralAbsoluteAddress(node).spanning(span));
+                        symbols = new_symbols;
+                    }
+                    Err((err, new_symbols)) => {
+                        errors.push(err);
+                        symbols = new_symbols;
+                    }
                 }
-                Err((err, new_symbols)) => {
-                    errors.push(err);
-                    symbols = new_symbols;
+            }
+            Some(Spanned { node: ':', span }) => {
+                match parse_breadcrumbs(span, symbols.slice(1..)) {
+                    Ok((Spanned { node, span }, new_symbols)) => {
+                        tokens.push(Token::RawAddress(node).spanning(span));
+                        symbols = new_symbols;
+                    }
+                    Err((err, new_symbols)) => {
+                        errors.push(err);
+                        symbols = new_symbols;
+                    }
                 }
-            },
-            Some(Spanned { node: ';', span }) => match parse_identifier(*span, &symbols[1..]) {
-                Ok((Spanned { node, span }, new_symbols)) => {
-                    tokens.push(Token::LiteralAbsoluteAddress(node).spanning(span));
-                    symbols = new_symbols;
-                }
-                Err((err, new_symbols)) => {
-                    errors.push(err);
-                    symbols = new_symbols;
-                }
-            },
-            Some(Spanned { node: ':', span }) => match parse_identifier(*span, &symbols[1..]) {
-                Ok((Spanned { node, span }, new_symbols)) => {
-                    tokens.push(Token::RawAddress(node).spanning(span));
-                    symbols = new_symbols;
-                }
-                Err((err, new_symbols)) => {
-                    errors.push(err);
-                    symbols = new_symbols;
-                }
-            },
+            }
             // TODO: what happens when there are several characters after the '?
             Some(Spanned { node: '\'', span }) => {
-                symbols = &symbols[1..];
+                symbols = symbols.slice(1..);
                 match symbols.first() {
                     Some(Spanned { node, span }) => {
-                        tokens.push(Token::RawChar(*node as u8).spanning(*span));
-                        symbols = &symbols[1..];
+                        tokens.push(Token::RawChar(node as u8).spanning(span));
+                        symbols = symbols.slice(1..);
                     }
                     None => {
-                        errors.push(Error::CharacterExpected { span: *span });
-                        symbols = &symbols[1..];
+                        errors.push(Error::CharacterExpected { span: span });
+                        symbols = symbols.slice(1..);
                     }
                 }
             }
             Some(Spanned { node: '"', span }) => {
-                let (Spanned { node: word, span }, new_symbols) = parse_word(*span, &symbols[1..]);
+                let (Spanned { node: word, span }, new_symbols) =
+                    parse_word(span, symbols.slice(1..));
                 tokens.push(Token::RawWord(word.chars().map(|c| c as u8).collect()).spanning(span));
                 symbols = new_symbols;
             }
-            Some(Spanned { node: c, span }) if is_hex_digit(*c) => match peek_word(symbols).len() {
+            Some(Spanned { node: c, span }) if is_hex_digit(c) => match peek_word(symbols).len() {
                 0 => unreachable!(),
-                length if length == 1 || length == 3 => match parse_hex_number(*span, symbols) {
+                length if length == 1 || length == 3 => match parse_hex_number(span, symbols) {
                     Ok((Spanned { span, .. }, new_symbols, parsed)) => {
                         errors.push(Error::HexNumberUnevenLength {
                             length,
-                            number: parsed
-                                .into_iter()
-                                .map(|Spanned { node: ch, .. }| *ch)
-                                .collect(),
+                            number: parsed.to_string(),
                             span,
                         });
                         symbols = new_symbols;
@@ -251,7 +252,7 @@ pub fn tokenize(input_file_contents: &str) -> Result<Vec<Spanned<Token>>, Vec<Er
                         symbols = new_symbols;
                     }
                 },
-                2 => match parse_hex_number(*span, symbols) {
+                2 => match parse_hex_number(span, symbols) {
                     Ok((Spanned { node, span }, new_symbols, _)) => {
                         tokens.push(Token::RawHexByte(node as u8).spanning(span));
                         symbols = new_symbols;
@@ -261,7 +262,7 @@ pub fn tokenize(input_file_contents: &str) -> Result<Vec<Spanned<Token>>, Vec<Er
                         symbols = new_symbols;
                     }
                 },
-                4 => match parse_hex_number(*span, symbols) {
+                4 => match parse_hex_number(span, symbols) {
                     Ok((Spanned { node, span }, new_symbols, _)) => {
                         tokens.push(Token::RawHexShort(node as u16).spanning(span));
                         symbols = new_symbols;
@@ -271,14 +272,11 @@ pub fn tokenize(input_file_contents: &str) -> Result<Vec<Spanned<Token>>, Vec<Er
                         symbols = new_symbols;
                     }
                 },
-                length => match parse_hex_number(*span, symbols) {
+                length => match parse_hex_number(span, symbols) {
                     Ok((Spanned { span, .. }, new_symbols, parsed)) => {
                         errors.push(Error::HexNumberTooLarge {
                             length,
-                            number: parsed
-                                .into_iter()
-                                .map(|Spanned { node: ch, .. }| *ch)
-                                .collect(),
+                            number: parsed.to_string(),
                             span,
                         });
                         symbols = new_symbols;
@@ -289,7 +287,7 @@ pub fn tokenize(input_file_contents: &str) -> Result<Vec<Spanned<Token>>, Vec<Er
                     }
                 },
             },
-            Some(_) => match parse_instruction(&symbols) {
+            Some(_) => match parse_instruction(symbols) {
                 Ok((
                     Spanned {
                         node: instruction,
@@ -334,7 +332,7 @@ fn scan(string: &str) -> Vec<Spanned<char>> {
         .collect()
 }
 
-fn peek_word(symbols: &[Spanned<char>]) -> &[Spanned<char>] {
+fn peek_word(symbols: Symbols) -> Symbols {
     let mut i = 0;
     loop {
         match symbols.get(i) {
@@ -342,31 +340,28 @@ fn peek_word(symbols: &[Spanned<char>]) -> &[Spanned<char>] {
                 i += 1;
             }
             _ => {
-                return &symbols[..i];
+                return symbols.slice(..i);
             }
         }
     }
 }
 
-fn parse_word(first_span: Span, symbols: &[Spanned<char>]) -> (Spanned<String>, &[Spanned<char>]) {
+fn parse_word(first_span: Span, symbols: Symbols) -> (Spanned<String>, Symbols) {
     let word = peek_word(symbols);
     let length = word.len();
     let last_span = word
         .last()
-        .map(|Spanned { span, .. }| *span)
+        .map(|Spanned { span, .. }| span)
         .unwrap_or(first_span);
-    let word: String = word
-        .into_iter()
-        .map(|Spanned { node: ch, .. }| *ch)
-        .collect();
+    let word: String = word.to_string();
     let word = word.spanning(Span::combine(&first_span, &last_span));
-    (word, &symbols[length..])
+    (word, symbols.slice(length..))
 }
 
 fn parse_identifier(
     first_span: Span,
-    symbols: &[Spanned<char>],
-) -> Result<(Spanned<String>, &[Spanned<char>]), (Error, &[Spanned<char>])> {
+    symbols: Symbols,
+) -> Result<(Spanned<String>, Symbols), (Error, Symbols)> {
     let word = peek_word(symbols);
     let length = word.len();
 
@@ -378,10 +373,7 @@ fn parse_identifier(
         return Err((
             Error::IdentifierCannotBeAHexNumber {
                 span,
-                number: parsed
-                    .into_iter()
-                    .map(|Spanned { node: ch, .. }| *ch)
-                    .collect(),
+                number: parsed.to_string(),
             },
             symbols,
         ));
@@ -391,30 +383,31 @@ fn parse_identifier(
         return Err((
             Error::IdentifierCannotBeAnInstruction {
                 span,
-                instruction: parsed
-                    .into_iter()
-                    .map(|Spanned { node: ch, .. }| *ch)
-                    .collect(),
+                instruction: parsed.to_string(),
             },
             symbols,
         ));
     }
 
-    let identifier: String = word
-        .into_iter()
-        .map(|Spanned { node: ch, .. }| *ch)
-        .collect();
+    let identifier: String = word.to_string();
     let first_span = word.first().unwrap().span;
     let last_span = word.last().unwrap().span;
     let identifier = identifier.spanning(Span::combine(&first_span, &last_span));
 
-    return Ok((identifier, &symbols[length..]));
+    return Ok((identifier, symbols.slice(length..)));
+}
+
+fn parse_breadcrumbs(
+    first_span: Span,
+    symbols: Symbols,
+) -> Result<(Spanned<Breadcrumbs>, Symbols), (Error, Symbols)> {
+    todo!()
 }
 
 fn parse_hex_number(
     first_span: Span,
-    symbols: &[Spanned<char>],
-) -> Result<(Spanned<usize>, &[Spanned<char>], &[Spanned<char>]), (Error, &[Spanned<char>])> {
+    symbols: Symbols,
+) -> Result<(Spanned<usize>, Symbols, Symbols), (Error, Symbols)> {
     let mut word = peek_word(symbols);
     let length = word.len();
 
@@ -428,53 +421,47 @@ fn parse_hex_number(
     let mut value: usize = 0;
 
     for Spanned { node: ch, span } in word {
-        if is_hex_digit(*ch) {
-            value = (value << 4) + to_hex_digit(*ch).unwrap() as usize;
-            word = &word[1..];
+        if is_hex_digit(ch) {
+            value = (value << 4) + to_hex_digit(ch).unwrap() as usize;
+            word = word.slice(1..);
         } else {
             return Err((
                 Error::HexDigitInvalid {
-                    digit: *ch,
-                    number: word
-                        .into_iter()
-                        .map(|Spanned { node: ch, .. }| *ch)
-                        .collect(),
-                    span: *span,
+                    digit: ch,
+                    number: word.to_string(),
+                    span,
                 },
-                &symbols[length..],
+                symbols.slice(length..),
             ));
         }
     }
 
     let hex_number = value.spanning(Span::combine(&first_span, &last_span));
-    return Ok((hex_number, &symbols[length..], &symbols[..length]));
+    return Ok((hex_number, symbols.slice(length..), symbols.slice(..length)));
 }
 
 /// `symbols` must not be empty.
 fn parse_instruction(
-    symbols: &[Spanned<char>],
-) -> Result<(Spanned<Instruction>, &[Spanned<char>], &[Spanned<char>]), (Error, &[Spanned<char>])> {
-    fn split_uppercase_prefix(symbols: &[Spanned<char>]) -> (&[Spanned<char>], &[Spanned<char>]) {
+    symbols: Symbols,
+) -> Result<(Spanned<Instruction>, Symbols, Symbols), (Error, Symbols)> {
+    fn split_uppercase_prefix(symbols: Symbols) -> (Symbols, Symbols) {
         let mut i: usize = 0;
         loop {
             match symbols.get(i) {
                 Some(Spanned { node: ch, .. }) if ch.is_uppercase() => {
                     i += 1;
                 }
-                _ => return (&symbols[..i], &symbols[i..]),
+                _ => return (symbols.slice(..i), symbols.slice(i..)),
             }
         }
     }
 
-    fn from_mnemonic(symbols: &[Spanned<char>]) -> Option<InstructionKind> {
+    fn from_mnemonic(symbols: Symbols) -> Option<InstructionKind> {
         if symbols.len() != 3 {
             return None;
         }
 
-        let string = symbols
-            .into_iter()
-            .map(|Spanned { node: ch, .. }| *ch)
-            .collect::<String>();
+        let string = symbols.to_string();
 
         let instruction_kind = match string.as_str() {
             "BRK" => Some(InstructionKind::Break),
@@ -521,10 +508,7 @@ fn parse_instruction(
     let (mnemonic, modes) = split_uppercase_prefix(word);
 
     let instruction_kind = from_mnemonic(mnemonic).ok_or_else(|| {
-        let instruction_string: String = word
-            .into_iter()
-            .map(|Spanned { node: ch, .. }| *ch)
-            .collect();
+        let instruction_string: String = word.to_string();
         let first_span = word.first().unwrap().span;
         let last_span = word.last().unwrap().span;
         let span = Span::combine(&first_span, &last_span);
@@ -534,7 +518,7 @@ fn parse_instruction(
                 instruction: instruction_string,
                 span,
             },
-            &symbols[length..],
+            symbols.slice(length..),
         )
     })?;
 
@@ -543,23 +527,20 @@ fn parse_instruction(
     let mut short: Option<Span> = None;
 
     for Spanned { node: ch, span } in modes {
-        match *ch {
+        match ch {
             'k' => {
                 if let Some(other_span) = keep {
                     return Err((
                         Error::InstructionModeDefinedMoreThanOnce {
                             instruction_mode: 'k',
-                            instruction: word
-                                .into_iter()
-                                .map(|Spanned { node: ch, .. }| *ch)
-                                .collect(),
-                            span: *span,
+                            instruction: word.to_string(),
+                            span,
                             other_span,
                         },
-                        &symbols[length..],
+                        symbols.slice(length..),
                     ));
                 } else {
-                    keep = Some(*span);
+                    keep = Some(span);
                 }
             }
             'r' => {
@@ -567,17 +548,14 @@ fn parse_instruction(
                     return Err((
                         Error::InstructionModeDefinedMoreThanOnce {
                             instruction_mode: 'r',
-                            instruction: word
-                                .into_iter()
-                                .map(|Spanned { node: ch, .. }| *ch)
-                                .collect(),
-                            span: *span,
+                            instruction: word.to_string(),
+                            span,
                             other_span,
                         },
-                        &symbols[length..],
+                        symbols.slice(length..),
                     ));
                 } else {
-                    r#return = Some(*span);
+                    r#return = Some(span);
                 }
             }
             '2' => {
@@ -585,30 +563,24 @@ fn parse_instruction(
                     return Err((
                         Error::InstructionModeDefinedMoreThanOnce {
                             instruction_mode: '2',
-                            instruction: word
-                                .into_iter()
-                                .map(|Spanned { node: ch, .. }| *ch)
-                                .collect(),
-                            span: *span,
+                            instruction: word.to_string(),
+                            span,
                             other_span,
                         },
-                        &symbols[length..],
+                        symbols.slice(length..),
                     ));
                 } else {
-                    short = Some(*span);
+                    short = Some(span);
                 }
             }
             instruction_mode => {
                 return Err((
                     Error::InstructionModeInvalid {
                         instruction_mode,
-                        instruction: word
-                            .into_iter()
-                            .map(|Spanned { node: ch, .. }| *ch)
-                            .collect(),
-                        span: *span,
+                        instruction: word.to_string(),
+                        span,
                     },
-                    &symbols[length..],
+                    symbols.slice(length..),
                 ));
             }
         }
@@ -630,7 +602,11 @@ fn parse_instruction(
     }
     .spanning(span);
 
-    return Ok((instruction, &symbols[length..], &symbols[..length]));
+    return Ok((
+        instruction,
+        symbols.slice(length..),
+        symbols.slice(..length),
+    ));
 }
 
 fn to_hex_digit(c: char) -> Option<usize> {

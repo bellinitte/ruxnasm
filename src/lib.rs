@@ -7,7 +7,7 @@ pub mod tokenizer;
 pub use error::Error;
 pub use instruction::{Instruction, InstructionKind};
 pub use span::{Location, Span, Spanned, Spanning};
-pub use token::Token;
+pub use token::{Breadcrumbs, Token};
 
 pub fn assemble(input_file_contents: &str) -> Result<[u8; 256 * 256], Vec<Error>> {
     let tokens = tokenizer::tokenize(input_file_contents)
