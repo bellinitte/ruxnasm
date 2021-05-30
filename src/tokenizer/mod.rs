@@ -8,35 +8,33 @@ mod error;
 
 pub fn tokenize(input_file_contents: &str) -> Result<Vec<Spanned<Token>>, Vec<Error>> {
     let symbols = scan(input_file_contents);
+    let mut symbols = symbols.as_slice();
 
     let mut tokens = Vec::new();
     let mut errors = Vec::new();
-    let mut i = 0;
 
     'tokens: loop {
         'gap: loop {
-            match symbols.get(i).as_ref() {
+            match symbols.first() {
                 Some(Spanned { node: c, .. }) if c.is_whitespace() => {
-                    i += 1;
+                    symbols = &symbols[1..];
                 }
-                Some(Spanned { node: '[', .. }) => {
-                    i += 1;
-                }
-                Some(Spanned { node: ']', .. }) => {
-                    i += 1;
+                Some(Spanned {
+                    node: '[' | ']', ..
+                }) => {
+                    symbols = &symbols[1..];
                 }
                 Some(Spanned { node: '(', .. }) => {
-                    i += 1;
+                    symbols = &symbols[1..];
                     let mut comment = true;
-                    // comment
                     while comment {
-                        match symbols.get(i) {
+                        match symbols.first() {
                             Some(Spanned { node: ')', .. }) => {
-                                i += 1;
+                                symbols = &symbols[1..];
                                 comment = false;
                             }
                             Some(_) => {
-                                i += 1;
+                                symbols = &symbols[1..];
                             }
                             None => break 'gap,
                         }
@@ -45,174 +43,225 @@ pub fn tokenize(input_file_contents: &str) -> Result<Vec<Spanned<Token>>, Vec<Er
                 _ => break 'gap,
             };
         }
-        match symbols.get(i) {
+        match symbols.first() {
             Some(Spanned { node: '{', span }) => {
-                i += 1;
+                symbols = &symbols[1..];
                 tokens.push(Token::OpeningBrace.spanning(*span));
             }
             Some(Spanned { node: '}', span }) => {
-                i += 1;
+                symbols = &symbols[1..];
                 tokens.push(Token::ClosingBrace.spanning(*span));
             }
-            Some(Spanned { node: '%', span }) => {
-                i += 1;
-                // TODO: check if the name is a valid instruction or a hex number
-                match parse_word(&symbols, &mut i) {
-                    Some(Spanned { node, span }) => {
-                        tokens.push(Token::MacroDefine(node).spanning(span))
-                    }
-                    None => errors.push(Error::IdentifierExpected { span: *span }),
+            Some(Spanned { node: '%', span }) => match parse_identifier(*span, &symbols[1..]) {
+                Ok((Spanned { node, span }, new_symbols)) => {
+                    tokens.push(Token::MacroDefine(node).spanning(span));
+                    symbols = new_symbols;
                 }
-            }
-            Some(Spanned { node: '|', .. }) => {
-                i += 1;
-                match parse_hex_number(&symbols, &mut i) {
-                    Ok(Spanned { node, span }) => {
-                        tokens.push(Token::PadAbsolute(node).spanning(span))
-                    }
-                    Err(err) => errors.push(err),
+                Err((err, new_symbols)) => {
+                    errors.push(err);
+                    symbols = new_symbols;
                 }
-            }
-            Some(Spanned { node: '$', .. }) => {
-                i += 1;
-                match parse_hex_number(&symbols, &mut i) {
-                    Ok(Spanned { node, span }) => {
-                        tokens.push(Token::PadRelative(node).spanning(span))
-                    }
-                    Err(err) => errors.push(err),
+            },
+            Some(Spanned { node: '|', span }) => match parse_hex_number(*span, &symbols[1..]) {
+                Ok((Spanned { node, span }, new_symbols)) => {
+                    tokens.push(Token::PadAbsolute(node).spanning(span));
+                    symbols = new_symbols;
                 }
-            }
-            Some(Spanned { node: '@', span }) => {
-                i += 1;
-                match parse_word(&symbols, &mut i) {
-                    Some(Spanned { node, span }) => {
-                        tokens.push(Token::LabelDefine(node).spanning(span))
-                    }
-                    None => errors.push(Error::IdentifierExpected { span: *span }),
+                Err((err, new_symbols)) => {
+                    errors.push(err);
+                    symbols = new_symbols;
                 }
-            }
-            Some(Spanned { node: '&', span }) => {
-                i += 1;
-                match parse_word(&symbols, &mut i) {
-                    Some(Spanned { node, span }) => {
-                        tokens.push(Token::SublabelDefine(node).spanning(span))
-                    }
-                    None => errors.push(Error::IdentifierExpected { span: *span }),
+            },
+            Some(Spanned { node: '$', span }) => match parse_hex_number(*span, &symbols[1..]) {
+                Ok((Spanned { node, span }, new_symbols)) => {
+                    tokens.push(Token::PadRelative(node).spanning(span));
+                    symbols = new_symbols;
                 }
-            }
+                Err((err, new_symbols)) => {
+                    errors.push(err);
+                    symbols = new_symbols;
+                }
+            },
+            Some(Spanned { node: '@', span }) => match parse_identifier(*span, &symbols[1..]) {
+                Ok((Spanned { node, span }, new_symbols)) => {
+                    tokens.push(Token::LabelDefine(node).spanning(span));
+                    symbols = new_symbols;
+                }
+                Err((err, new_symbols)) => {
+                    errors.push(err);
+                    symbols = new_symbols;
+                }
+            },
+            Some(Spanned { node: '&', span }) => match parse_identifier(*span, &symbols[1..]) {
+                Ok((Spanned { node, span }, new_symbols)) => {
+                    tokens.push(Token::SublabelDefine(node).spanning(span));
+                    symbols = new_symbols;
+                }
+                Err((err, new_symbols)) => {
+                    errors.push(err);
+                    symbols = new_symbols;
+                }
+            },
             Some(Spanned { node: '#', span }) => {
-                i += 1;
-                match peek_length(&symbols, i) {
+                symbols = &symbols[1..];
+                match peek_word(symbols).len() {
                     0 => errors.push(Error::HexNumberExpected { span: *span }),
                     1 => {
-                        tokens.push(Token::LiteralHexByte(symbols[i].node as u8).spanning(*span));
-                        i += 1;
+                        let Spanned {
+                            node: ch,
+                            span: other_span,
+                        } = symbols.first().unwrap();
+                        tokens.push(
+                            Token::LiteralHexByte(*ch as u8)
+                                .spanning(Span::combine(span, other_span)),
+                        );
+                        symbols = &symbols[1..];
                     }
-                    2 => match parse_hex_number(&symbols, &mut i) {
-                        Ok(Spanned { node, span }) => {
+                    2 => match parse_hex_number(*span, symbols) {
+                        Ok((Spanned { node, span }, new_symbols)) => {
                             tokens.push(Token::LiteralHexByte(node as u8).spanning(span));
+                            symbols = new_symbols;
                         }
-                        Err(err) => errors.push(err),
+                        Err((err, new_symbols)) => {
+                            errors.push(err);
+                            symbols = new_symbols;
+                        }
                     },
                     3 => {
-                        errors.push(Error::HexNumberUnevenLength { span: *span });
-                        i += 3;
+                        errors.push(Error::HexNumberUnevenLength {
+                            span: Span::combine(span, &symbols[2].span),
+                        });
+                        symbols = &symbols[3..];
                     }
-                    4 => match parse_hex_number(&symbols, &mut i) {
-                        Ok(Spanned { node, span }) => {
+                    4 => match parse_hex_number(*span, symbols) {
+                        Ok((Spanned { node, span }, new_symbols)) => {
                             tokens.push(Token::LiteralHexShort(node as u16).spanning(span));
+                            symbols = new_symbols;
                         }
-                        Err(err) => errors.push(err),
+                        Err((err, new_symbols)) => {
+                            errors.push(err);
+                            symbols = new_symbols;
+                        }
                     },
-                    length => errors.push(Error::HexNumberTooLarge {
-                        length,
-                        span: *span,
-                    }),
-                }
-            }
-            Some(Spanned { node: '.', span }) => {
-                i += 1;
-                match parse_word(&symbols, &mut i) {
-                    Some(Spanned { node, span }) => {
-                        tokens.push(Token::LiteralZeroPageAddress(node).spanning(span))
+                    length => {
+                        errors.push(Error::HexNumberTooLarge {
+                            length,
+                            span: Span::combine(span, &symbols[length - 1].span),
+                        });
+                        symbols = &symbols[length..];
                     }
-                    None => errors.push(Error::IdentifierExpected { span: *span }),
                 }
             }
-            Some(Spanned { node: ',', span }) => {
-                i += 1;
-                match parse_word(&symbols, &mut i) {
-                    Some(Spanned { node, span }) => {
-                        tokens.push(Token::LiteralRelativeAddress(node).spanning(span))
-                    }
-                    None => errors.push(Error::IdentifierExpected { span: *span }),
+            Some(Spanned { node: '.', span }) => match parse_identifier(*span, &symbols[1..]) {
+                Ok((Spanned { node, span }, new_symbols)) => {
+                    tokens.push(Token::LiteralZeroPageAddress(node).spanning(span));
+                    symbols = new_symbols;
                 }
-            }
-            Some(Spanned { node: ';', span }) => {
-                i += 1;
-                match parse_word(&symbols, &mut i) {
-                    Some(Spanned { node, span }) => {
-                        tokens.push(Token::LiteralAbsoluteAddress(node).spanning(span))
-                    }
-                    None => errors.push(Error::IdentifierExpected { span: *span }),
+                Err((err, new_symbols)) => {
+                    errors.push(err);
+                    symbols = new_symbols;
                 }
-            }
-            Some(Spanned { node: ':', span }) => {
-                i += 1;
-                match parse_word(&symbols, &mut i) {
-                    Some(Spanned { node, span }) => {
-                        tokens.push(Token::RawAddress(node).spanning(span))
-                    }
-                    None => errors.push(Error::IdentifierExpected { span: *span }),
+            },
+            Some(Spanned { node: ',', span }) => match parse_identifier(*span, &symbols[1..]) {
+                Ok((Spanned { node, span }, new_symbols)) => {
+                    tokens.push(Token::LiteralRelativeAddress(node).spanning(span));
+                    symbols = new_symbols;
                 }
-            }
+                Err((err, new_symbols)) => {
+                    errors.push(err);
+                    symbols = new_symbols;
+                }
+            },
+            Some(Spanned { node: ';', span }) => match parse_identifier(*span, &symbols[1..]) {
+                Ok((Spanned { node, span }, new_symbols)) => {
+                    tokens.push(Token::LiteralAbsoluteAddress(node).spanning(span));
+                    symbols = new_symbols;
+                }
+                Err((err, new_symbols)) => {
+                    errors.push(err);
+                    symbols = new_symbols;
+                }
+            },
+            Some(Spanned { node: ':', span }) => match parse_identifier(*span, &symbols[1..]) {
+                Ok((Spanned { node, span }, new_symbols)) => {
+                    tokens.push(Token::RawAddress(node).spanning(span));
+                    symbols = new_symbols;
+                }
+                Err((err, new_symbols)) => {
+                    errors.push(err);
+                    symbols = new_symbols;
+                }
+            },
+            // TODO: what happens when there are several characters after the '?
             Some(Spanned { node: '\'', span }) => {
-                i += 1;
-                match symbols.get(i) {
+                symbols = &symbols[1..];
+                match symbols.first() {
                     Some(Spanned { node, span }) => {
-                        tokens.push(Token::RawChar(*node as u8).spanning(*span))
+                        tokens.push(Token::RawChar(*node as u8).spanning(*span));
+                        symbols = &symbols[1..];
                     }
-                    None => errors.push(Error::CharacterExpected { span: *span }),
+                    None => {
+                        errors.push(Error::CharacterExpected { span: *span });
+                        symbols = &symbols[1..];
+                    }
                 }
             }
             Some(Spanned { node: '"', span }) => {
-                i += 1;
-                match parse_word(&symbols, &mut i) {
-                    Some(Spanned { node, span }) => tokens.push(
-                        Token::RawWord(node.chars().map(|c| c as u8).collect()).spanning(span),
-                    ),
-                    None => errors.push(Error::CharacterSequenceExpected { span: *span }),
-                }
+                let (Spanned { node: word, span }, new_symbols) = parse_word(*span, &symbols[1..]);
+                tokens.push(Token::RawWord(word.chars().map(|c| c as u8).collect()).spanning(span));
+                symbols = new_symbols;
             }
-            Some(Spanned { node: c, span }) if is_hex_digit(*c) => match peek_length(&symbols, i) {
+            Some(Spanned { node: c, span }) if is_hex_digit(*c) => match peek_word(symbols).len() {
                 0 => unreachable!(),
                 length if length == 1 || length == 3 => {
-                    errors.push(Error::HexNumberUnevenLength { span: *span });
-                    i += length;
+                    errors.push(Error::HexNumberUnevenLength {
+                        span: Span::combine(span, &symbols[length - 1].span),
+                    });
+                    symbols = &symbols[length..];
                 }
-                2 => match parse_hex_number(&symbols, &mut i) {
-                    Ok(Spanned { node, span }) => {
+                2 => match parse_hex_number(*span, symbols) {
+                    Ok((Spanned { node, span }, new_symbols)) => {
                         tokens.push(Token::RawHexByte(node as u8).spanning(span));
+                        symbols = new_symbols;
                     }
-                    Err(err) => errors.push(err),
+                    Err((err, new_symbols)) => {
+                        errors.push(err);
+                        symbols = new_symbols;
+                    }
                 },
-                4 => match parse_hex_number(&symbols, &mut i) {
-                    Ok(Spanned { node, span }) => {
+                4 => match parse_hex_number(*span, symbols) {
+                    Ok((Spanned { node, span }, new_symbols)) => {
                         tokens.push(Token::RawHexShort(node as u16).spanning(span));
+                        symbols = new_symbols;
                     }
-                    Err(err) => errors.push(err),
+                    Err((err, new_symbols)) => {
+                        errors.push(err);
+                        symbols = new_symbols;
+                    }
                 },
-                length => errors.push(Error::HexNumberTooLarge {
-                    length,
-                    span: *span,
-                }),
+                length => {
+                    errors.push(Error::HexNumberTooLarge {
+                        length,
+                        span: Span::combine(span, &symbols[length - 1].span),
+                    });
+                    symbols = &symbols[length..];
+                }
             },
-            Some(_) => match parse_instruction(&symbols, &mut i) {
-                Ok(Spanned {
-                    node: instruction,
-                    span,
-                }) => tokens.push(Token::Instruction(instruction).spanning(span)),
-                Err(err) => errors.push(err),
+            Some(_) => match parse_instruction(&symbols) {
+                Ok((
+                    Spanned {
+                        node: instruction,
+                        span,
+                    },
+                    new_symbols,
+                )) => {
+                    tokens.push(Token::Instruction(instruction).spanning(span));
+                    symbols = new_symbols;
+                }
+                Err((err, new_symbols)) => {
+                    errors.push(err);
+                    symbols = new_symbols;
+                }
             },
             None => break 'tokens,
         }
@@ -228,11 +277,11 @@ pub fn tokenize(input_file_contents: &str) -> Result<Vec<Spanned<Token>>, Vec<Er
 fn scan(string: &str) -> Vec<Spanned<char>> {
     string
         .chars()
-        .scan(Location { offset: 0 }, |location, grapheme| {
+        .scan(Location { offset: 0 }, |location, ch| {
             let current_location = *location;
             (*location).offset += 1;
             Some(Spanned {
-                node: grapheme,
+                node: ch,
                 span: Span {
                     from: current_location,
                     to: *location,
@@ -242,184 +291,265 @@ fn scan(string: &str) -> Vec<Spanned<char>> {
         .collect()
 }
 
-fn parse_word<'a>(symbols: &[Spanned<char>], i: &mut usize) -> Option<Spanned<String>> {
-    let os = symbols.get(*i).unwrap().span;
-    let mut oe = os;
-    let mut identifier: String = String::new();
-    let mut length: usize = 0;
-    loop {
-        match symbols.get(*i) {
-            Some(Spanned { node: c, span: o }) if !c.is_whitespace() => {
-                identifier.push(*c);
-                oe = *o;
-                length += 1;
-                *i += 1;
-            }
-            _ => {
-                return match length {
-                    0 => None,
-                    _ => Some(identifier.spanning(Span::combine(&os, &oe))),
-                }
-            }
-        }
-    }
-}
-
-fn parse_hex_number<'a>(symbols: &[Spanned<char>], i: &mut usize) -> Result<Spanned<usize>, Error> {
-    let os = symbols.get(*i).unwrap().span;
-    let mut oe = os;
-    let mut value: usize = 0;
-    let mut length: usize = 0;
-    loop {
-        match symbols.get(*i) {
-            Some(Spanned { node: c, span: o }) if is_hex_digit(*c) => {
-                value = (value << 4) + to_hex_digit(*c).unwrap() as usize;
-                oe = *o;
-                length += 1;
-                *i += 1;
-            }
-            // TODO: skip curosr ahead to the end of the number
-            Some(Spanned { node: c, span: o }) if !c.is_whitespace() => {
-                return Err(Error::HexDigitInvalid {
-                    digit: *c,
-                    span: *o,
-                });
-            }
-            _ => {
-                return match length {
-                    0 => Err(Error::HexNumberExpected { span: os }),
-                    _ => Ok(value.spanning(Span::combine(&os, &oe))),
-                }
-            }
-        }
-    }
-}
-
-fn peek_length(symbols: &[Spanned<char>], mut i: usize) -> usize {
-    let mut length = 0;
+fn peek_word(symbols: &[Spanned<char>]) -> &[Spanned<char>] {
+    let mut i = 0;
     loop {
         match symbols.get(i) {
-            Some(Spanned { node: c, .. }) if c.is_whitespace() => {
-                return length;
-            }
-            _ => {
-                length += 1;
+            Some(Spanned { node: c, .. }) if !c.is_whitespace() => {
                 i += 1;
             }
+            _ => {
+                return &symbols[..i];
+            }
         }
     }
 }
 
-fn parse_instruction<'a>(
+fn parse_word(first_span: Span, symbols: &[Spanned<char>]) -> (Spanned<String>, &[Spanned<char>]) {
+    let word = peek_word(symbols);
+    let length = word.len();
+    let last_span = word
+        .last()
+        .map(|Spanned { span, .. }| *span)
+        .unwrap_or(first_span);
+    let word: String = word
+        .into_iter()
+        .map(|Spanned { node: ch, .. }| *ch)
+        .collect();
+    let word = word.spanning(Span::combine(&first_span, &last_span));
+    (word, &symbols[length..])
+}
+
+fn parse_identifier(
+    first_span: Span,
     symbols: &[Spanned<char>],
-    i: &mut usize,
-) -> Result<Spanned<Instruction>, Error> {
-    let os = symbols.get(*i).unwrap().span;
-    let mut oe = os;
-    let mut mnemonic: String = String::new();
-    let start_i = *i;
+) -> Result<(Spanned<String>, &[Spanned<char>]), (Error, &[Spanned<char>])> {
+    let word = peek_word(symbols);
+    let length = word.len();
 
-    loop {
-        match symbols.get(*i) {
-            Some(Spanned { node: c, span }) if !c.is_whitespace() => {
-                mnemonic.push(*c);
-                oe = *span;
-                *i += 1;
-            }
-            _ => {
-                break;
-            }
-        }
+    if word.is_empty() {
+        return Err((Error::IdentifierExpected { span: first_span }, symbols));
     }
 
-    let instruction_kind = match from_mnemonic(&mnemonic.chars().take(3).collect::<String>()) {
-        Some(instruction_kind) => instruction_kind,
-        None => {
-            return Err(Error::InstructionInvalid {
-                instruction: mnemonic,
-                span: Span::combine(&os, &oe),
-            })
-        }
-    };
-    *i = start_i + 3;
-
-    let mut keep = false;
-    let mut r#return = false;
-    let mut short = false;
-
-    loop {
-        match symbols.get(*i) {
-            // TODO: handle duplicate modes
-            Some(Spanned { node: 'k', span }) => {
-                keep = true;
-                oe = *span;
-                *i += 1;
-            }
-            Some(Spanned { node: 'r', span }) => {
-                r#return = true;
-                oe = *span;
-                *i += 1;
-            }
-            Some(Spanned { node: '2', span }) => {
-                short = true;
-                oe = *span;
-                *i += 1;
-            }
-            Some(Spanned { node: c, span }) if !c.is_whitespace() => {
-                return Err(Error::InstructionModeInvalid {
-                    instruction_mode: *c,
-                    span: *span,
-                });
-            }
-            _ => {
-                return Ok(Instruction {
-                    instruction_kind,
-                    keep,
-                    r#return,
-                    short,
-                }
-                .spanning(Span::combine(&os, &oe)))
-            }
-        }
+    if let Ok((Spanned { span, .. }, symbols)) = parse_hex_number(first_span, symbols) {
+        return Err((Error::IdentifierCannotBeAHexNumber { span }, symbols));
     }
+
+    if let Ok((Spanned { span, .. }, symbols)) = parse_instruction(symbols) {
+        return Err((Error::IdentifierCannotBeAnInstructon { span }, symbols));
+    }
+
+    let identifier: String = word
+        .into_iter()
+        .map(|Spanned { node: ch, .. }| *ch)
+        .collect();
+    let first_span = word.first().unwrap().span;
+    let last_span = word.last().unwrap().span;
+    let identifier = identifier.spanning(Span::combine(&first_span, &last_span));
+
+    return Ok((identifier, &symbols[length..]));
 }
 
-fn from_mnemonic(s: &str) -> Option<InstructionKind> {
-    match s {
-        "BRK" => Some(InstructionKind::Break),
-        "LIT" => Some(InstructionKind::Literal),
-        "NOP" => Some(InstructionKind::NoOperation),
-        "POP" => Some(InstructionKind::Pop),
-        "DUP" => Some(InstructionKind::Duplicate),
-        "SWP" => Some(InstructionKind::Swap),
-        "OVR" => Some(InstructionKind::Over),
-        "ROT" => Some(InstructionKind::Rotate),
-        "EQU" => Some(InstructionKind::Equal),
-        "NEQ" => Some(InstructionKind::NotEqual),
-        "GTH" => Some(InstructionKind::GreaterThan),
-        "LTH" => Some(InstructionKind::LesserThan),
-        "JMP" => Some(InstructionKind::Jump),
-        "JCN" => Some(InstructionKind::JumpCondition),
-        "JSR" => Some(InstructionKind::JumpStash),
-        "STH" => Some(InstructionKind::Stash),
-        "LDZ" => Some(InstructionKind::LoadZeroPage),
-        "STZ" => Some(InstructionKind::StoreZeroPage),
-        "LDR" => Some(InstructionKind::LoadRelative),
-        "STR" => Some(InstructionKind::StoreRelative),
-        "LDA" => Some(InstructionKind::LoadAbsolute),
-        "STA" => Some(InstructionKind::StoreAbsolute),
-        "DEI" => Some(InstructionKind::DeviceIn),
-        "DEO" => Some(InstructionKind::DeviceOut),
-        "ADD" => Some(InstructionKind::Add),
-        "SUB" => Some(InstructionKind::Subtract),
-        "MUL" => Some(InstructionKind::Multiply),
-        "DIV" => Some(InstructionKind::Divide),
-        "AND" => Some(InstructionKind::And),
-        "ORA" => Some(InstructionKind::Or),
-        "EOR" => Some(InstructionKind::ExclusiveOr),
-        "SFT" => Some(InstructionKind::Shift),
-        _ => None,
+fn parse_hex_number(
+    first_span: Span,
+    symbols: &[Spanned<char>],
+) -> Result<(Spanned<usize>, &[Spanned<char>]), (Error, &[Spanned<char>])> {
+    let mut word = peek_word(symbols);
+    let length = word.len();
+
+    if word.is_empty() {
+        return Err((Error::HexNumberExpected { span: first_span }, symbols));
     }
+
+    let first_span = word.first().unwrap().span;
+    let last_span = word.last().unwrap().span;
+
+    let mut value: usize = 0;
+
+    for Spanned { node: ch, span } in word {
+        if is_hex_digit(*ch) {
+            value = (value << 4) + to_hex_digit(*ch).unwrap() as usize;
+            word = &word[1..];
+        } else {
+            return Err((
+                Error::HexDigitInvalid {
+                    digit: *ch,
+                    span: *span,
+                },
+                &symbols[length..],
+            ));
+        }
+    }
+
+    let hex_number = value.spanning(Span::combine(&first_span, &last_span));
+    return Ok((hex_number, &symbols[length..]));
+}
+
+/// `symbols` must not be empty.
+fn parse_instruction(
+    symbols: &[Spanned<char>],
+) -> Result<(Spanned<Instruction>, &[Spanned<char>]), (Error, &[Spanned<char>])> {
+    fn split_uppercase_prefix(symbols: &[Spanned<char>]) -> (&[Spanned<char>], &[Spanned<char>]) {
+        let mut i: usize = 0;
+        loop {
+            match symbols.get(i) {
+                Some(Spanned { node: ch, .. }) if ch.is_uppercase() => {
+                    i += 1;
+                }
+                _ => return (&symbols[..i], &symbols[i..]),
+            }
+        }
+    }
+
+    fn from_mnemonic(symbols: &[Spanned<char>]) -> Option<InstructionKind> {
+        if symbols.len() != 3 {
+            return None;
+        }
+
+        let string = symbols
+            .into_iter()
+            .map(|Spanned { node: ch, .. }| *ch)
+            .collect::<String>();
+
+        let instruction_kind = match string.as_str() {
+            "BRK" => Some(InstructionKind::Break),
+            "LIT" => Some(InstructionKind::Literal),
+            "NOP" => Some(InstructionKind::NoOperation),
+            "POP" => Some(InstructionKind::Pop),
+            "DUP" => Some(InstructionKind::Duplicate),
+            "SWP" => Some(InstructionKind::Swap),
+            "OVR" => Some(InstructionKind::Over),
+            "ROT" => Some(InstructionKind::Rotate),
+            "EQU" => Some(InstructionKind::Equal),
+            "NEQ" => Some(InstructionKind::NotEqual),
+            "GTH" => Some(InstructionKind::GreaterThan),
+            "LTH" => Some(InstructionKind::LesserThan),
+            "JMP" => Some(InstructionKind::Jump),
+            "JCN" => Some(InstructionKind::JumpCondition),
+            "JSR" => Some(InstructionKind::JumpStash),
+            "STH" => Some(InstructionKind::Stash),
+            "LDZ" => Some(InstructionKind::LoadZeroPage),
+            "STZ" => Some(InstructionKind::StoreZeroPage),
+            "LDR" => Some(InstructionKind::LoadRelative),
+            "STR" => Some(InstructionKind::StoreRelative),
+            "LDA" => Some(InstructionKind::LoadAbsolute),
+            "STA" => Some(InstructionKind::StoreAbsolute),
+            "DEI" => Some(InstructionKind::DeviceIn),
+            "DEO" => Some(InstructionKind::DeviceOut),
+            "ADD" => Some(InstructionKind::Add),
+            "SUB" => Some(InstructionKind::Subtract),
+            "MUL" => Some(InstructionKind::Multiply),
+            "DIV" => Some(InstructionKind::Divide),
+            "AND" => Some(InstructionKind::And),
+            "ORA" => Some(InstructionKind::Or),
+            "EOR" => Some(InstructionKind::ExclusiveOr),
+            "SFT" => Some(InstructionKind::Shift),
+            _ => None,
+        };
+
+        return instruction_kind;
+    }
+
+    let word = peek_word(symbols);
+    let length = word.len();
+
+    let (mnemonic, modes) = split_uppercase_prefix(word);
+
+    let instruction_kind = from_mnemonic(mnemonic).ok_or_else(|| {
+        let instruction_string: String = word
+            .into_iter()
+            .map(|Spanned { node: ch, .. }| *ch)
+            .collect();
+        let first_span = word.first().unwrap().span;
+        let last_span = word.last().unwrap().span;
+        let span = Span::combine(&first_span, &last_span);
+
+        (
+            Error::InstructionInvalid {
+                instruction: instruction_string,
+                span,
+            },
+            &symbols[length..],
+        )
+    })?;
+
+    let mut keep: Option<Span> = None;
+    let mut r#return: Option<Span> = None;
+    let mut short: Option<Span> = None;
+
+    for Spanned { node: ch, span } in modes {
+        match *ch {
+            'k' => {
+                if let Some(other_span) = keep {
+                    return Err((
+                        Error::InstructionModeDefinedMoreThanOnce {
+                            instruction_mode: 'k',
+                            span: *span,
+                            other_span,
+                        },
+                        &symbols[length..],
+                    ));
+                } else {
+                    keep = Some(*span);
+                }
+            }
+            'r' => {
+                if let Some(other_span) = r#return {
+                    return Err((
+                        Error::InstructionModeDefinedMoreThanOnce {
+                            instruction_mode: 'r',
+                            span: *span,
+                            other_span,
+                        },
+                        &symbols[length..],
+                    ));
+                } else {
+                    r#return = Some(*span);
+                }
+            }
+            '2' => {
+                if let Some(other_span) = short {
+                    return Err((
+                        Error::InstructionModeDefinedMoreThanOnce {
+                            instruction_mode: '2',
+                            span: *span,
+                            other_span,
+                        },
+                        &symbols[length..],
+                    ));
+                } else {
+                    short = Some(*span);
+                }
+            }
+            instruction_mode => {
+                return Err((
+                    Error::InstructionModeInvalid {
+                        instruction_mode,
+                        span: *span,
+                    },
+                    &symbols[length..],
+                ));
+            }
+        }
+    }
+
+    let keep = keep.is_some();
+    let r#return = r#return.is_some();
+    let short = short.is_some();
+
+    let first_span = word.first().unwrap().span;
+    let last_span = word.last().unwrap().span;
+    let span = Span::combine(&first_span, &last_span);
+
+    let instruction = Instruction {
+        instruction_kind,
+        keep,
+        r#return,
+        short,
+    }
+    .spanning(span);
+
+    return Ok((instruction, &symbols[length..]));
 }
 
 fn to_hex_digit(c: char) -> Option<usize> {

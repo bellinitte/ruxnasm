@@ -117,13 +117,6 @@ impl From<tokenizer::Error> for FileDiagnostic {
                     span,
                     message: String::new(),
                 }),
-            tokenizer::Error::CharacterSequenceExpected { span } => FileDiagnostic::error()
-                .with_message("expected a character")
-                .with_label(Label {
-                    style: LabelStyle::Primary,
-                    span,
-                    message: String::new(),
-                }),
             tokenizer::Error::InstructionInvalid { instruction, span } => FileDiagnostic::error()
                 .with_message(format!("invalid instruction '{}'", instruction))
                 .with_label(Label {
@@ -136,6 +129,39 @@ impl From<tokenizer::Error> for FileDiagnostic {
                 span,
             } => FileDiagnostic::error()
                 .with_message(format!("invalid instruction mode '{}'", instruction_mode))
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            tokenizer::Error::InstructionModeDefinedMoreThanOnce {
+                instruction_mode,
+                span,
+                other_span,
+            } => FileDiagnostic::error()
+                .with_message(format!(
+                    "instruction mode '{}' is defined multiple times for an instruction",
+                    instruction_mode
+                ))
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: format!("mode `{}` redefined here", instruction_mode),
+                })
+                .with_label(Label {
+                    style: LabelStyle::Secondary,
+                    span: other_span,
+                    message: format!("previous definition of mode `{}` here", instruction_mode),
+                }),
+            tokenizer::Error::IdentifierCannotBeAHexNumber { span } => FileDiagnostic::error()
+                .with_message("identifiers cannot be valid hexadecimal numbers")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            tokenizer::Error::IdentifierCannotBeAnInstructon { span } => FileDiagnostic::error()
+                .with_message("identifiers cannot be valid instructions")
                 .with_label(Label {
                     style: LabelStyle::Primary,
                     span,
