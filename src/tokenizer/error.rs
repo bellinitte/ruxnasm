@@ -9,13 +9,17 @@ pub enum Error {
     },
     HexDigitInvalid {
         digit: char,
+        number: String,
         span: Span,
     },
     HexNumberUnevenLength {
+        length: usize,
+        number: String,
         span: Span,
     },
     HexNumberTooLarge {
         length: usize,
+        number: String,
         span: Span,
     },
     CharacterExpected {
@@ -27,17 +31,21 @@ pub enum Error {
     },
     InstructionModeInvalid {
         instruction_mode: char,
+        instruction: String,
         span: Span,
     },
     InstructionModeDefinedMoreThanOnce {
         instruction_mode: char,
+        instruction: String,
         span: Span,
         other_span: Span,
     },
     IdentifierCannotBeAHexNumber {
+        number: String,
         span: Span,
     },
-    IdentifierCannotBeAnInstructon {
+    IdentifierCannotBeAnInstruction {
+        instruction: String,
         span: Span,
     },
 }
