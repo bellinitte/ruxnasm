@@ -33,3 +33,4 @@ pub enum Breadcrumbs {
 }
 
 impl_spanning!(Token);
+impl_spanning!(Breadcrumbs);

@@ -60,3 +60,4 @@ impl_spanning!(u64);
 impl_spanning!(usize);
 impl_spanning!(&'a str);
 impl_spanning!(Vec<u8>);
+impl_spanning!(char);
