@@ -1,4 +1,6 @@
-use super::{Error, Identifier, Instruction, InstructionKind, Slice, Span, Spanned, Symbols};
+use super::{
+    Error, Identifier, Instruction, InstructionKind, Slice, Span, Spanned, Symbols, Warning,
+};
 
 pub fn peek_word<'a>(symbols: &'a mut Symbols) -> Symbols<'a> {
     let s = symbols.clone();
@@ -87,7 +89,7 @@ pub fn parse_hex_number(word: Symbols) -> Result<usize, Error> {
 }
 
 /// `symbols` must not be empty.
-pub fn parse_instruction(word: Symbols) -> Option<Instruction> {
+pub fn parse_instruction(word: Symbols) -> Option<(Instruction, Vec<Warning>)> {
     if word.len() < 3 {
         return None;
     }
@@ -131,49 +133,40 @@ pub fn parse_instruction(word: Symbols) -> Option<Instruction> {
     let mut keep: Option<Span> = None;
     let mut r#return: Option<Span> = None;
     let mut short: Option<Span> = None;
+    let mut warnings = Vec::new();
 
     for Spanned { node: ch, span } in word.slice(3..) {
         match ch {
             'k' => {
-                if let Some(_) = keep {
-                    // TODO: transform into a warning
-                    // return Err((
-                    //     Error::InstructionModeDefinedMoreThanOnce {
-                    //         instruction_mode: 'k',
-                    //         instruction: word.to_string(),
-                    //         span,
-                    //         other_span,
-                    //     },
-                    //     symbols.slice(length..),
-                    // ));
+                if let Some(other_span) = keep {
+                    warnings.push(Warning::InstructionModeDefinedMoreThanOnce {
+                        instruction_mode: 'k',
+                        instruction: word.slice(..3).to_string(),
+                        span,
+                        other_span,
+                    });
                 }
                 keep = Some(span);
             }
             'r' => {
-                if let Some(_) = r#return {
-                    // return Err((
-                    //     Error::InstructionModeDefinedMoreThanOnce {
-                    //         instruction_mode: 'r',
-                    //         instruction: word.to_string(),
-                    //         span,
-                    //         other_span,
-                    //     },
-                    //     symbols.slice(length..),
-                    // ));
+                if let Some(other_span) = r#return {
+                    warnings.push(Warning::InstructionModeDefinedMoreThanOnce {
+                        instruction_mode: 'r',
+                        instruction: word.slice(..3).to_string(),
+                        span,
+                        other_span,
+                    });
                 }
                 r#return = Some(span);
             }
             '2' => {
-                if let Some(_) = short {
-                    // return Err((
-                    //     Error::InstructionModeDefinedMoreThanOnce {
-                    //         instruction_mode: '2',
-                    //         instruction: word.to_string(),
-                    //         span,
-                    //         other_span,
-                    //     },
-                    //     symbols.slice(length..),
-                    // ));
+                if let Some(other_span) = short {
+                    warnings.push(Warning::InstructionModeDefinedMoreThanOnce {
+                        instruction_mode: '2',
+                        instruction: word.slice(..3).to_string(),
+                        span,
+                        other_span,
+                    });
                 }
                 short = Some(span);
             }
@@ -183,12 +176,15 @@ pub fn parse_instruction(word: Symbols) -> Option<Instruction> {
         }
     }
 
-    return Some(Instruction {
-        instruction_kind,
-        keep: keep.is_some(),
-        r#return: r#return.is_some(),
-        short: short.is_some(),
-    });
+    return Some((
+        Instruction {
+            instruction_kind,
+            keep: keep.is_some(),
+            r#return: r#return.is_some(),
+            short: short.is_some(),
+        },
+        warnings,
+    ));
 }
 
 pub fn to_hex_digit(c: char) -> Option<usize> {

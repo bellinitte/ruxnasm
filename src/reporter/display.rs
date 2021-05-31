@@ -71,6 +71,41 @@ impl From<ruxnasm::Error> for FileDiagnostic {
     }
 }
 
+impl From<ruxnasm::Warning> for FileDiagnostic {
+    fn from(warning: ruxnasm::Warning) -> Self {
+        match warning {
+            ruxnasm::Warning::Tokenizer(warning) => warning.into(),
+        }
+    }
+}
+
+impl From<tokenizer::Warning> for FileDiagnostic {
+    fn from(warning: tokenizer::Warning) -> Self {
+        match warning {
+            tokenizer::Warning::InstructionModeDefinedMoreThanOnce {
+                instruction_mode,
+                instruction,
+                span,
+                other_span,
+            } => FileDiagnostic::warning()
+                .with_message(format!(
+                    "instruction mode `{}` is defined multiple times for instruction `{}`",
+                    instruction_mode, instruction
+                ))
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: format!("mode `{}` redefined here", instruction_mode),
+                })
+                .with_label(Label {
+                    style: LabelStyle::Secondary,
+                    span: other_span,
+                    message: format!("previous definition of mode `{}` here", instruction_mode),
+                }),
+        }
+    }
+}
+
 impl From<tokenizer::Error> for FileDiagnostic {
     fn from(error: tokenizer::Error) -> Self {
         match error {
@@ -145,26 +180,6 @@ impl From<tokenizer::Error> for FileDiagnostic {
                     span,
                     message: String::new(),
                 }),
-            // tokenizer::Error::InstructionModeDefinedMoreThanOnce {
-            //     instruction_mode,
-            //     instruction,
-            //     span,
-            //     other_span,
-            // } => FileDiagnostic::error()
-            //     .with_message(format!(
-            //         "instruction mode `{}` is defined multiple times for instruction `{}`",
-            //         instruction_mode, instruction
-            //     ))
-            //     .with_label(Label {
-            //         style: LabelStyle::Primary,
-            //         span,
-            //         message: format!("mode `{}` redefined here", instruction_mode),
-            //     })
-            //     .with_label(Label {
-            //         style: LabelStyle::Secondary,
-            //         span: other_span,
-            //         message: format!("previous definition of mode `{}` here", instruction_mode),
-            //     }),
             tokenizer::Error::MacroCannotBeAHexNumber { number, span } => FileDiagnostic::error()
                 .with_message(format!(
                     "`{}` cannot be used as a macro name, as it is a valid hexadecimal number",

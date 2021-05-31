@@ -1,5 +1,16 @@
 use super::Span;
 
+#[derive(Clone)]
+pub enum Warning {
+    InstructionModeDefinedMoreThanOnce {
+        instruction_mode: char,
+        instruction: String,
+        span: Span,
+        other_span: Span,
+    },
+}
+
+#[derive(Clone)]
 pub enum Error {
     MacroNameExpected {
         span: Span,
@@ -28,12 +39,6 @@ pub enum Error {
         number: String,
         span: Span,
     },
-    // InstructionModeDefinedMoreThanOnce {
-    //     instruction_mode: char,
-    //     instruction: String,
-    //     span: Span,
-    //     other_span: Span,
-    // },
     MacroCannotBeAHexNumber {
         number: String,
         span: Span,

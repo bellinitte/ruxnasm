@@ -1,11 +1,11 @@
 use super::{Identifier, Token};
 use super::{Location, Span, Spanned, Spanning};
-use crate::{Instruction, InstructionKind};
-pub use error::Error;
+use crate::{Anomalies, Instruction, InstructionKind};
+pub use anomalies::{Error, Warning};
 use parsers::*;
 use symbols::{Slice, Symbols};
 
-mod error;
+mod anomalies;
 mod parsers;
 mod symbols;
 
@@ -18,12 +18,12 @@ macro_rules! macro_invoke {
     };
 }
 
-pub fn tokenize(input_file_contents: &str) -> Result<Vec<Spanned<Token>>, Vec<Error>> {
+pub fn tokenize(input_file_contents: &str) -> (Vec<Spanned<Token>>, Anomalies) {
     let symbols = scan(input_file_contents);
     let mut symbols: Symbols = symbols.as_slice().into();
 
     let mut tokens = Vec::new();
-    let mut errors = Vec::new();
+    let mut anomalies = Anomalies::new();
 
     'tokens: loop {
         let word = peek_word(&mut symbols);
@@ -46,7 +46,7 @@ pub fn tokenize(input_file_contents: &str) -> Result<Vec<Spanned<Token>>, Vec<Er
                 Ok(name) => {
                     tokens.push(Token::MacroDefine(name).spanning(word.to_span().unwrap()));
                 }
-                Err(err) => errors.push(err),
+                Err(err) => anomalies.push_error(err),
             },
             Some(Spanned { node: '|', .. }) => match parse_hex_number(word.slice(1..)) {
                 Ok(value) => {
@@ -64,14 +64,14 @@ pub fn tokenize(input_file_contents: &str) -> Result<Vec<Spanned<Token>>, Vec<Er
                 Ok(name) => {
                     tokens.push(Token::LabelDefine(name).spanning(word.to_span().unwrap()));
                 }
-                Err(err) => errors.push(err),
+                Err(err) => anomalies.push_error(err),
             },
             Some(Spanned { node: '&', .. }) => {
                 let name = parse_sublabel(word.slice(1..));
                 tokens.push(Token::SublabelDefine(name).spanning(word.to_span().unwrap()));
             }
             Some(Spanned { node: '#', .. }) => match word.slice(1..).len() {
-                0 => errors.push(Error::HexNumberExpected {
+                0 => anomalies.push_error(Error::HexNumberExpected {
                     span: word.to_span().unwrap(),
                 }),
                 1 => {
@@ -81,48 +81,48 @@ pub fn tokenize(input_file_contents: &str) -> Result<Vec<Spanned<Token>>, Vec<Er
                 2 => match parse_hex_number(word.slice(1..)) {
                     Ok(x) => tokens
                         .push(Token::LiteralHexByte(x as u8).spanning(word.to_span().unwrap())),
-                    Err(err) => errors.push(err),
+                    Err(err) => anomalies.push_error(err),
                 },
                 3 => match parse_hex_number(word.slice(1..)) {
-                    Ok(_) => errors.push(Error::HexNumberUnevenLength {
+                    Ok(_) => anomalies.push_error(Error::HexNumberUnevenLength {
                         length: 3,
                         number: word.slice(1..).to_string(),
                         span: word.slice(1..).to_span().unwrap(),
                     }),
-                    Err(err) => errors.push(err),
+                    Err(err) => anomalies.push_error(err),
                 },
                 4 => match parse_hex_number(word.slice(1..)) {
                     Ok(x) => tokens
                         .push(Token::LiteralHexShort(x as u16).spanning(word.to_span().unwrap())),
-                    Err(err) => errors.push(err),
+                    Err(err) => anomalies.push_error(err),
                 },
                 length => match parse_hex_number(word.slice(1..)) {
-                    Ok(_) => errors.push(Error::HexNumberTooLong {
+                    Ok(_) => anomalies.push_error(Error::HexNumberTooLong {
                         length,
                         number: word.slice(1..).to_string(),
                         span: word.to_span().unwrap(),
                     }),
-                    Err(err) => errors.push(err),
+                    Err(err) => anomalies.push_error(err),
                 },
             },
             Some(Spanned { node: '.', span }) => match parse_identifier(span, word.slice(1..)) {
                 Ok(name) => tokens
                     .push(Token::LiteralZeroPageAddress(name).spanning(word.to_span().unwrap())),
-                Err(err) => errors.push(err),
+                Err(err) => anomalies.push_error(err),
             },
             Some(Spanned { node: ',', span }) => match parse_identifier(span, word.slice(1..)) {
                 Ok(name) => tokens
                     .push(Token::LiteralRelativeAddress(name).spanning(word.to_span().unwrap())),
-                Err(err) => errors.push(err),
+                Err(err) => anomalies.push_error(err),
             },
             Some(Spanned { node: ';', span }) => match parse_identifier(span, word.slice(1..)) {
                 Ok(name) => tokens
                     .push(Token::LiteralAbsoluteAddress(name).spanning(word.to_span().unwrap())),
-                Err(err) => errors.push(err),
+                Err(err) => anomalies.push_error(err),
             },
             Some(Spanned { node: ':', span }) => match parse_identifier(span, word.slice(1..)) {
                 Ok(name) => tokens.push(Token::RawAddress(name).spanning(word.to_span().unwrap())),
-                Err(err) => errors.push(err),
+                Err(err) => anomalies.push_error(err),
             },
             Some(Spanned { node: '\'', span }) => match word.second() {
                 Some(spanned) => tokens.push(spanned.map(|c| Token::RawChar(c as u8))),
@@ -138,7 +138,7 @@ pub fn tokenize(input_file_contents: &str) -> Result<Vec<Spanned<Token>>, Vec<Er
                         match word.len() {
                             0 => unreachable!(),
                             length if length == 1 || length == 3 => {
-                                errors.push(Error::HexNumberUnevenLength {
+                                anomalies.push_error(Error::HexNumberUnevenLength {
                                     length,
                                     number: word.to_string(),
                                     span: word.to_span().unwrap(),
@@ -149,7 +149,7 @@ pub fn tokenize(input_file_contents: &str) -> Result<Vec<Spanned<Token>>, Vec<Er
                             4 => tokens.push(
                                 Token::RawHexShort(x as u16).spanning(word.to_span().unwrap()),
                             ),
-                            length => errors.push(Error::HexNumberTooLong {
+                            length => anomalies.push_error(Error::HexNumberTooLong {
                                 length,
                                 number: word.to_string(),
                                 span: word.to_span().unwrap(),
@@ -160,10 +160,11 @@ pub fn tokenize(input_file_contents: &str) -> Result<Vec<Spanned<Token>>, Vec<Er
                     Err(_) => false,
                 };
                 flag |= match parse_instruction(word) {
-                    Some(instruction) => {
+                    Some((instruction, new_warnings)) => {
                         tokens.push(
                             Token::Instruction(instruction).spanning(word.to_span().unwrap()),
                         );
+                        anomalies.push_warnings(new_warnings);
                         true
                     }
                     None => false,
@@ -176,11 +177,7 @@ pub fn tokenize(input_file_contents: &str) -> Result<Vec<Spanned<Token>>, Vec<Er
         }
     }
 
-    if errors.is_empty() {
-        Ok(tokens)
-    } else {
-        Err(errors)
-    }
+    (tokens, anomalies)
 }
 
 fn scan(string: &str) -> Vec<Spanned<char>> {
