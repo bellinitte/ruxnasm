@@ -18,7 +18,7 @@ macro_rules! macro_invoke {
     };
 }
 
-pub fn tokenize(input_file_contents: &str) -> (Vec<Spanned<Token>>, Anomalies) {
+pub(super) fn tokenize(input_file_contents: &str) -> (Vec<Spanned<Token>>, Anomalies) {
     let symbols = scan(input_file_contents);
     let mut symbols: Symbols = symbols.as_slice().into();
 
@@ -37,10 +37,9 @@ pub fn tokenize(input_file_contents: &str) -> (Vec<Spanned<Token>>, Anomalies) {
                 }
             },
             Some(Spanned {
-                node: '[' | ']' | ')',
+                node: '[' | ']' | '{' | ')',
                 ..
             }) => (),
-            Some(Spanned { node: '{', span }) => tokens.push(Token::OpeningBrace.spanning(span)),
             Some(Spanned { node: '}', span }) => tokens.push(Token::ClosingBrace.spanning(span)),
             Some(Spanned { node: '%', span }) => match parse_macro(span, word.slice(1..)) {
                 Ok(name) => {

@@ -1,4 +1,5 @@
 /target
 *.swp
 *.bin
+*.rom
 .DS_Store

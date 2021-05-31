@@ -1,11 +1,10 @@
 use super::Instruction;
 use super::{impl_spanning, Span, Spanned, Spanning};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Token {
     Instruction(Instruction),
     MacroDefine(String),
-    OpeningBrace,
     ClosingBrace,
     MacroInvoke(String),
     PadAbsolute(usize),
@@ -24,7 +23,7 @@ pub enum Token {
     RawWord(String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Identifier {
     Label(String),
     Sublabel(String),

@@ -1,7 +1,7 @@
 use super::diagnostic::{Label, LabelStyle};
 use super::{FileDiagnostic, VoidDiagnostic};
 use crate::{argument_parser, reader, writer};
-use ruxnasm::tokenizer;
+use ruxnasm::{emitter, tokenizer};
 
 impl From<crate::InternalAssemblerError> for VoidDiagnostic {
     fn from(error: crate::InternalAssemblerError) -> Self {
@@ -75,6 +75,7 @@ impl From<ruxnasm::Warning> for FileDiagnostic {
     fn from(warning: ruxnasm::Warning) -> Self {
         match warning {
             ruxnasm::Warning::Tokenizer(warning) => warning.into(),
+            ruxnasm::Warning::Emitter(warning) => warning.into(),
         }
     }
 }
@@ -202,6 +203,20 @@ impl From<tokenizer::Error> for FileDiagnostic {
                         message: String::new(),
                     })
             }
+        }
+    }
+}
+
+impl From<emitter::Warning> for FileDiagnostic {
+    fn from(warning: emitter::Warning) -> Self {
+        match warning {
+            emitter::Warning::ClosingBraceMisplaced { span } => FileDiagnostic::warning()
+                .with_message("misplaced a closing brace that is not a part of a macro")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
         }
     }
 }

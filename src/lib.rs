@@ -1,4 +1,5 @@
 mod anomalies;
+pub mod emitter;
 mod instruction;
 mod span;
 mod token;
@@ -12,24 +13,23 @@ pub use token::{Identifier, Token};
 
 pub fn assemble(
     input_file_contents: &str,
-) -> Result<([u8; 256 * 256], Vec<Warning>), (Vec<Warning>, Vec<Error>)> {
+) -> Result<(Vec<u8>, Vec<Warning>), (Vec<Warning>, Vec<Error>)> {
+    let mut anomalies = Anomalies::new();
+
     let (tokens, tokenize_anomalies) = tokenizer::tokenize(input_file_contents);
-    if tokenize_anomalies.are_fatal() {
+    anomalies.extend(tokenize_anomalies);
+
+    let (binary, emit_anomalies) = emitter::emit(&tokens);
+    anomalies.extend(emit_anomalies);
+
+    if anomalies.are_fatal() {
         return Err((
-            tokenize_anomalies.warnings().cloned().collect(),
-            tokenize_anomalies.errors().cloned().collect(),
+            anomalies.warnings().cloned().collect(),
+            anomalies.errors().cloned().collect(),
         ));
     }
-    println!(
-        "{:#?}",
-        tokens
-            .into_iter()
-            .map(|Spanned { node, .. }: Spanned<Token>| node)
-            .collect::<Vec<Token>>()
-    );
 
-    Ok((
-        [0; 256 * 256],
-        tokenize_anomalies.warnings().cloned().collect(),
-    ))
+    println!("{:?}", binary);
+
+    Ok((binary, anomalies.warnings().cloned().collect()))
 }

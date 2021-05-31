@@ -1,13 +1,20 @@
-use crate::tokenizer;
+use crate::{emitter, tokenizer};
 
 #[derive(Clone)]
 pub enum Warning {
     Tokenizer(tokenizer::Warning),
+    Emitter(emitter::Warning),
 }
 
 impl From<tokenizer::Warning> for Warning {
     fn from(warning: tokenizer::Warning) -> Self {
         Self::Tokenizer(warning)
+    }
+}
+
+impl From<emitter::Warning> for Warning {
+    fn from(warning: emitter::Warning) -> Self {
+        Self::Emitter(warning)
     }
 }
 
@@ -49,6 +56,11 @@ impl Anomalies {
 
     pub fn push_errors<I: IntoIterator<Item = T>, T: Into<Error>>(&mut self, errors: I) {
         self.errors.extend(errors.into_iter().map(T::into));
+    }
+
+    pub fn extend(&mut self, other: Anomalies) {
+        self.warnings.extend(other.warnings);
+        self.errors.extend(other.errors);
     }
 
     pub fn are_fatal(&self) -> bool {
