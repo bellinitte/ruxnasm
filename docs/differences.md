@@ -39,9 +39,8 @@ N | Uxnasm | Ruxnasm |
 --|--------|---------|
 27 | Opening and closing parentheses (i.e. comments) allow you only to enable or disable the parsing. | Comments can be nested. |
 28 | Tokens are split by whitespace. See [Delimiters](#delimiters) for the details and implications. | Splits the tokens not only by whitespace but by the delimiters as well. See [Delimiters](#delimiters) for the details. |
-29 | Opening brace after a macro definition can be omitted. | A macro definition not followed by an opening brace is a valid, but empty macro. |
-30 | Label definitions, sublabel definitions, macro definitions, and absolute pads are not allowed in macros. | Definitions and absolute pads are also valid in macros. See [Definitions and absolute pads in macros](#definitions-and-absolute-pads-in-macros) for the details. |
-31 | During a macro definition, strings that represent the tokens are copied to the contents of a macro and are parsed only during the macro invocation. This means that if the macro is never used, it can contain invalid tokens. | Tokens are parsed during macro definitions. |
+29 | Opening brace after a macro definition can be omitted. | A macro definition not directly followed by an opening brace is a valid, but empty macro. |
+30 | Label definitions, sublabel definitions, macro definitions, and absolute pads are not allowed in macros. | Definitions and absolute pads are valid in macros. See [Definitions and absolute pads in macros](#definitions-and-absolute-pads-in-macros) for the details. |
 
 ## Examples
 
