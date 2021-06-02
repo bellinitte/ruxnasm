@@ -26,7 +26,7 @@ N | Uxnasm | Ruxnasm |
 18 | A macro definition that is not closed at the end of the file results in a "Macro too large" error. | Any unclosed macro definitions, i.e. opening braces that do not have a matching closing brace, result in error E0023.
 19 | Ignores all closing brackets. | Still ignores all closing brackets, but any misplaced closing bracket i.e. one that does not have a matching opening bracket results in error E0024. |
 20 | Ignores all opening brackets. | Still ignores all opening brackets, but any opening bracket that does not have a matching closing bracket results in error E0025. |
-21 | Recursive macros result in a segmentation fault when expanded. | Any instance of a direct or undirect recursion in macros is detected at assembly time (even when the recursive macro is never expanded) and reported as error E0026. See [Recursive macros](#recursive-macros) for the details. |
+21 | Recursive macros result in a segmentation fault when expanded. | Any instance of a direct or undirect recursion in macros is detected at assembly time (except when the recursive macro is never expanded) and reported as error E0026. See [Recursive macros](#recursive-macros) for the details. |
 22 | After a raw character rune, ignores all bytes after the first one. | More than one character or a multibyte Unicode character after a raw character rune results in error E0027.
 23 | Specifying a 1 or 3-digit hexadecimal number after the absolute pad rune is valid. | Specifying a 1 or 3-digit hexadecimal number after the absolute pad rune results in an error E0015 to be more consistent with the literal or raw hexadecimal numbers. |
 24 | Specifying a hexadecimal number with more than 4 digits after the absolute pad rune is valid, but the most significant digits are ignored. | Specifying a hexadecimal number with more than 4 digits after the absolute pad rune results in error E0016. |
@@ -41,9 +41,7 @@ N | Uxnasm | Ruxnasm |
 28 | Tokens are split by whitespace. See [Delimiters](#delimiters) for the details and implications. | Splits the tokens not only by whitespace but by the delimiters as well. See [Delimiters](#delimiters) for the details. |
 29 | Opening brace after a macro definition can be omitted. | A macro definition not directly followed by an opening brace is a valid, but empty macro. |
 30 | Label definitions, sublabel definitions, macro definitions, and absolute pads are not allowed in macros. | Definitions and absolute pads are valid in macros. See [Definitions and absolute pads in macros](#definitions-and-absolute-pads-in-macros) for the details. |
-
-To do:
-- Comments in macros
+31 | Comments and brackets are not allowed in macros. | Comments and brackets are valid in macros: <ul><li>Any comment opened in a macro must be closed within that macro, or else the closing brace won't be parsed.</li><li>Bracket matching and nesting behaves exacly as if the macro would be expanded inline, so the brackets can be opened within a macro and closed outside of it or vice versa.</li></ul> |
 
 ## Examples
 
