@@ -42,6 +42,7 @@ N | Uxnasm | Ruxnasm |
 29 | Opening brace after a macro definition can be omitted. | A macro definition not directly followed by an opening brace is a valid, but empty macro. |
 30 | Label definitions, sublabel definitions, macro definitions, and absolute pads are not allowed in macros. | Definitions and absolute pads are valid in macros. See [Definitions and absolute pads in macros](#definitions-and-absolute-pads-in-macros) for the details. |
 31 | Comments and brackets are not allowed in macros. | Comments and brackets are valid in macros: <ul><li>Any comment opened in a macro must be closed within that macro, or else the closing brace won't be parsed.</li><li>Bracket matching and nesting behaves exacly as if the macro would be expanded inline, so the brackets can be opened within a macro and closed outside of it or vice versa.</li></ul> |
+32 | Attempting to define a label that is a valid hexadecimal number or a valid instruction results in "Label name is hex number" and "Label name is invalid" errors, respectively. | Labels can be valid hexadecimal numbers or instructions. Labels must be preceded by an address rune &mdash; they don't clash with numbers or instructions in any way. |
 
 ## Examples
 
