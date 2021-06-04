@@ -1,7 +1,7 @@
 use super::diagnostic::{Label, LabelStyle};
 use super::{FileDiagnostic, VoidDiagnostic};
 use crate::{argument_parser, reader, writer};
-use ruxnasm::{emitter, tokenizer};
+use ruxnasm::{scanner, tokenizer};
 
 impl From<crate::InternalAssemblerError> for VoidDiagnostic {
     fn from(error: crate::InternalAssemblerError) -> Self {
@@ -66,6 +66,7 @@ impl From<writer::Error> for VoidDiagnostic {
 impl From<ruxnasm::Error> for FileDiagnostic {
     fn from(error: ruxnasm::Error) -> Self {
         match error {
+            ruxnasm::Error::Scanner(error) => error.into(),
             ruxnasm::Error::Tokenizer(error) => error.into(),
         }
     }
@@ -74,8 +75,24 @@ impl From<ruxnasm::Error> for FileDiagnostic {
 impl From<ruxnasm::Warning> for FileDiagnostic {
     fn from(warning: ruxnasm::Warning) -> Self {
         match warning {
+            ruxnasm::Warning::Scanner(warning) => warning.into(),
             ruxnasm::Warning::Tokenizer(warning) => warning.into(),
-            ruxnasm::Warning::Emitter(warning) => warning.into(),
+        }
+    }
+}
+
+impl From<scanner::Warning> for FileDiagnostic {
+    fn from(warning: scanner::Warning) -> Self {
+        match warning {
+            scanner::Warning::TokenTrimmed { span } => FileDiagnostic::warning()
+                .with_message(format!(
+                    "token has been cut off, as it's longer than 64 characters"
+                ))
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
         }
     }
 }
@@ -102,6 +119,27 @@ impl From<tokenizer::Warning> for FileDiagnostic {
                     style: LabelStyle::Secondary,
                     span: other_span,
                     message: format!("previous definition of mode `{}` here", instruction_mode),
+                }),
+        }
+    }
+}
+
+impl From<scanner::Error> for FileDiagnostic {
+    fn from(error: scanner::Error) -> Self {
+        match error {
+            scanner::Error::NoMatchingClosingParenthesis { span } => FileDiagnostic::error()
+                .with_message("no matching closing parenthesis found for an opening parenthesis")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            scanner::Error::NoMatchingOpeningParenthesis { span } => FileDiagnostic::error()
+                .with_message("no matching opening parenthesis found for a closing parenthesis")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
                 }),
         }
     }
@@ -203,20 +241,6 @@ impl From<tokenizer::Error> for FileDiagnostic {
                         message: String::new(),
                     })
             }
-        }
-    }
-}
-
-impl From<emitter::Warning> for FileDiagnostic {
-    fn from(warning: emitter::Warning) -> Self {
-        match warning {
-            emitter::Warning::ClosingBraceMisplaced { span } => FileDiagnostic::warning()
-                .with_message("misplaced a closing brace that is not a part of a macro")
-                .with_label(Label {
-                    style: LabelStyle::Primary,
-                    span,
-                    message: String::new(),
-                }),
         }
     }
 }

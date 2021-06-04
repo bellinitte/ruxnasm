@@ -3,12 +3,15 @@ use super::{impl_spanning, Span, Spanned, Spanning};
 
 #[derive(Debug, Clone)]
 pub enum Token {
+    OpeningBracket,
+    ClosingBracket,
+    OpeningBrace,
+    ClosingBrace,
     Instruction(Instruction),
     MacroDefine(String),
-    ClosingBrace,
     MacroInvoke(String),
-    PadAbsolute(usize),
-    PadRelative(usize),
+    PadAbsolute(u16),
+    PadRelative(u16),
     LabelDefine(String),
     SublabelDefine(String),
     LiteralZeroPageAddress(Identifier),

@@ -1,22 +1,22 @@
 use diagnostic::{FileDiagnostic, VoidDiagnostic};
 use file::{File, Void};
-use std::path::Path;
+use std::{path::Path, sync::RwLock};
 
 mod diagnostic;
 mod display;
 mod file;
 
 pub struct VoidReporter {
-    pub writer: codespan_reporting::term::termcolor::StandardStream,
+    pub writer: RwLock<codespan_reporting::term::termcolor::StandardStream>,
     pub config: codespan_reporting::term::Config,
 }
 
 impl VoidReporter {
     pub fn new() -> Self {
         Self {
-            writer: codespan_reporting::term::termcolor::StandardStream::stderr(
+            writer: RwLock::new(codespan_reporting::term::termcolor::StandardStream::stderr(
                 codespan_reporting::term::termcolor::ColorChoice::Always,
-            ),
+            )),
             config: codespan_reporting::term::Config {
                 display_style: codespan_reporting::term::DisplayStyle::Rich,
                 tab_width: 2,
@@ -41,7 +41,7 @@ impl VoidReporter {
 
     pub fn emit(&self, diagnostic: VoidDiagnostic) {
         let _ = codespan_reporting::term::emit(
-            &mut self.writer.lock(),
+            &mut self.writer.write().unwrap().lock(),
             &self.config,
             &Void,
             &diagnostic.into(),
@@ -51,7 +51,7 @@ impl VoidReporter {
 
 pub struct FileReporter<'a> {
     pub file: File<'a>,
-    pub writer: codespan_reporting::term::termcolor::StandardStream,
+    pub writer: RwLock<codespan_reporting::term::termcolor::StandardStream>,
     pub config: codespan_reporting::term::Config,
 }
 
@@ -65,7 +65,7 @@ impl<'a> FileReporter<'a> {
 
     pub fn emit(&self, diagnostic: FileDiagnostic) {
         let _ = codespan_reporting::term::emit(
-            &mut self.writer.lock(),
+            &mut self.writer.write().unwrap().lock(),
             &self.config,
             &self.file,
             &diagnostic.into(),

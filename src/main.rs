@@ -16,13 +16,13 @@ fn try_main() {
                 let reporter = reporter::VoidReporter::new()
                     .promote(arguments.input_file_path(), &input_file_contents);
                 match ruxnasm::assemble(&input_file_contents) {
-                    Ok((_binary, warnings)) => {
-                        // println!("{:?}", binary);
+                    Ok((binary, warnings)) => {
                         for warning in warnings {
                             reporter.emit(warning.into());
                         }
+                        println!("{:?}", binary);
                     }
-                    Err((warnings, errors)) => {
+                    Err((errors, warnings)) => {
                         for error in errors {
                             reporter.emit(error.into());
                         }

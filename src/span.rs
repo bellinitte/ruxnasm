@@ -1,8 +1,27 @@
-use std::fmt;
+use std::{
+    fmt,
+    ops::{Add, AddAssign},
+};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Location {
     pub offset: usize,
+}
+
+impl Add<usize> for Location {
+    type Output = Location;
+
+    fn add(self, rhs: usize) -> Self::Output {
+        Self {
+            offset: self.offset + rhs,
+        }
+    }
+}
+
+impl AddAssign<usize> for Location {
+    fn add_assign(&mut self, rhs: usize) {
+        self.offset += rhs;
+    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -12,8 +31,15 @@ pub struct Span {
 }
 
 impl Span {
-    pub fn combine(start: &Span, end: &Span) -> Span {
-        Span {
+    pub fn new(location: Location) -> Self {
+        Self {
+            from: location,
+            to: location + 1,
+        }
+    }
+
+    pub fn combine(start: &Span, end: &Span) -> Self {
+        Self {
             from: start.from,
             to: end.to,
         }
