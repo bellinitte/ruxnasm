@@ -4,6 +4,7 @@ use crate::{Instruction, InstructionKind};
 pub use anomalies::{Error, Warning};
 
 mod anomalies;
+mod hex_number;
 
 #[derive(Clone)]
 enum WordStatus {
@@ -93,88 +94,100 @@ fn tokenize(word: &[Spanned<char>]) -> Result<(Spanned<Token>, Vec<Warning>), Er
             }
             Err(err) => Err(err),
         },
-        Spanned { node: '|', .. } => match parse_hex_number(&word[1..]) {
-            Ok(value) => {
-                return Ok((
-                    Token::PadAbsolute(value as u16).spanning(to_span(word).unwrap()),
-                    Vec::new(),
-                ))
+        Spanned { node: '|', span } => hex_number::parse_hex_number_unconstrained(&word[1..])
+            .map_err(|err| match err {
+                hex_number::Error2::DigitExpected => Error::HexNumberExpected { span },
+                hex_number::Error2::DigitInvalid { digit, span } => Error::HexDigitInvalid {
+                    digit,
+                    number: to_string(&word[1..]),
+                    span,
+                },
+            })
+            .map(|value| Token::PadAbsolute(value))
+            .map(|token| (token.spanning(to_span(word).unwrap()), Vec::new())),
+        Spanned { node: '$', span } => hex_number::parse_hex_number_unconstrained(&word[1..])
+            .map_err(|err| match err {
+                hex_number::Error2::DigitExpected => Error::HexNumberExpected { span },
+                hex_number::Error2::DigitInvalid { digit, span } => Error::HexDigitInvalid {
+                    digit,
+                    number: to_string(&word[1..]),
+                    span,
+                },
+            })
+            .map(|value| Token::PadRelative(value))
+            .map(|token| (token.spanning(to_span(word).unwrap()), Vec::new())),
+        Spanned { node: '@', span } => {
+            if !word[1..].is_empty() {
+                if word[1].node != '&' {
+                    if let Some(position) = word[1..]
+                        .iter()
+                        .map(|Spanned { node: ch, .. }| *ch)
+                        .position(|c| c == '/')
+                    {
+                        Err(Error::SlashInLabelOrSublabel {
+                            span: word[1 + position].span,
+                        })
+                    } else {
+                        Ok((
+                            Token::LabelDefine(to_string(&word[1..]))
+                                .spanning(to_span(word).unwrap()),
+                            Vec::new(),
+                        ))
+                    }
+                } else {
+                    Err(Error::AmpersandAtTheStartOfLabel { span: word[1].span })
+                }
+            } else {
+                Err(Error::LabelExpected { span })
             }
-            Err(err) => Err(err),
-        },
-        Spanned { node: '$', .. } => match parse_hex_number(&word[1..]) {
-            Ok(value) => {
-                return Ok((
-                    Token::PadRelative(value as u16).spanning(to_span(word).unwrap()),
-                    Vec::new(),
-                ))
+        }
+        Spanned { node: '&', span } => {
+            if !word[1..].is_empty() {
+                if let Some(position) = word[1..]
+                    .iter()
+                    .map(|Spanned { node: ch, .. }| *ch)
+                    .position(|c| c == '/')
+                {
+                    Err(Error::SlashInLabelOrSublabel {
+                        span: word[1 + position].span,
+                    })
+                } else {
+                    Ok((
+                        Token::SublabelDefine(to_string(&word[1..]))
+                            .spanning(to_span(word).unwrap()),
+                        Vec::new(),
+                    ))
+                }
+            } else {
+                Err(Error::LabelExpected { span })
             }
-            Err(err) => Err(err),
-        },
-        Spanned { node: '@', span } => match parse_label(span, &word[1..]) {
-            Ok(name) => {
-                return Ok((
-                    Token::LabelDefine(name).spanning(to_span(word).unwrap()),
-                    Vec::new(),
-                ));
+        }
+        Spanned { node: '#', span } => match hex_number::parse_hex_number(&word[1..]) {
+            Ok(hex_number::HexNumber::Byte(value)) => Ok(Token::LiteralHexByte(value)),
+            Ok(hex_number::HexNumber::Short(value)) => Ok(Token::LiteralHexShort(value)),
+            Err(hex_number::Error::DigitExpected) => {
+                Err(Error::HexNumberOrCharacterExpected { span })
             }
-            Err(err) => Err(err),
-        },
-        Spanned { node: '&', span } => match parse_sublabel(span, &word[1..]) {
-            Ok(name) => {
-                return Ok((
-                    Token::SublabelDefine(name).spanning(to_span(word).unwrap()),
-                    Vec::new(),
-                ));
-            }
-            Err(err) => Err(err),
-        },
-        Spanned { node: '#', .. } => match word[1..].len() {
-            0 => Err(Error::HexNumberExpected {
-                span: to_span(word).unwrap(),
+            Err(hex_number::Error::DigitInvalid { digit, span }) => Err(Error::HexDigitInvalid {
+                digit,
+                number: to_string(&word[1..]),
+                span,
             }),
-            1 => {
-                let Spanned { node: ch, .. } = word.get(1).unwrap();
-                return Ok((
-                    Token::LiteralHexByte(*ch as u8).spanning(to_span(word).unwrap()),
-                    Vec::new(),
-                ));
+            Err(hex_number::Error::UnevenLength { length: 1 }) => {
+                Ok(Token::LiteralHexByte(word[1].node as u8))
             }
-            2 => match parse_hex_number(&word[1..]) {
-                Ok(x) => {
-                    return Ok((
-                        Token::LiteralHexByte(x as u8).spanning(to_span(word).unwrap()),
-                        Vec::new(),
-                    ));
-                }
-                Err(err) => Err(err),
-            },
-            3 => match parse_hex_number(&word[1..]) {
-                Ok(_) => Err(Error::HexNumberUnevenLength {
-                    length: 3,
-                    number: to_string(&word[1..]),
-                    span: to_span(&word[1..]).unwrap(),
-                }),
-                Err(err) => Err(err),
-            },
-            4 => match parse_hex_number(&word[1..]) {
-                Ok(x) => {
-                    return Ok((
-                        Token::LiteralHexShort(x as u16).spanning(to_span(word).unwrap()),
-                        Vec::new(),
-                    ));
-                }
-                Err(err) => Err(err),
-            },
-            length => match parse_hex_number(&word[1..]) {
-                Ok(_) => Err(Error::HexNumberTooLong {
-                    length,
-                    number: to_string(&word[1..]),
-                    span: to_span(&word[1..]).unwrap(),
-                }),
-                Err(err) => Err(err),
-            },
-        },
+            Err(hex_number::Error::UnevenLength { length }) => Err(Error::HexNumberUnevenLength {
+                length,
+                number: to_string(&word[1..]),
+                span: to_span(&word[1..]).unwrap(),
+            }),
+            Err(hex_number::Error::TooLong { length }) => Err(Error::HexNumberTooLong {
+                length,
+                number: to_string(&word[1..]),
+                span: to_span(&word[1..]).unwrap(),
+            }),
+        }
+        .map(|token| (token.spanning(to_span(word).unwrap()), Vec::new())),
         Spanned { node: '.', span } => match parse_identifier(span, &word[1..]) {
             Ok(name) => {
                 return Ok((
@@ -211,12 +224,20 @@ fn tokenize(word: &[Spanned<char>]) -> Result<(Spanned<Token>, Vec<Warning>), Er
             }
             Err(err) => Err(err),
         },
-        Spanned { node: '\'', span } => match word.get(1) {
-            Some(spanned) => {
-                return Ok((spanned.clone().map(|c| Token::RawChar(c as u8)), Vec::new()));
+        Spanned { node: '\'', span } => {
+            let bytes: Vec<u8> = to_string(&word[1..]).bytes().collect();
+            match bytes.len() {
+                0 => Err(Error::CharacterExpected { span }),
+                1 => Ok((
+                    Token::RawChar(bytes[0]).spanning(Span::combine(&span, &word[1].span)),
+                    Vec::new(),
+                )),
+                _ => {
+                    let span = to_span(&word[1..]).unwrap();
+                    Err(Error::MoreThanOneByteFound { bytes, span })
+                }
             }
-            None => return Ok((Token::RawChar(0x00).spanning(span), Vec::new())),
-        },
+        }
         Spanned { node: '"', span } => {
             return Ok((
                 Token::RawWord(to_string(&word[1..])).spanning(span),
@@ -224,36 +245,15 @@ fn tokenize(word: &[Spanned<char>]) -> Result<(Spanned<Token>, Vec<Warning>), Er
             ));
         }
         _ => {
-            if let Ok(x) = parse_hex_number(word) {
-                match word.len() {
-                    0 => unreachable!(),
-                    length if length == 1 || length == 3 => {
-                        return Err(Error::HexNumberUnevenLength {
-                            length,
-                            number: to_string(word),
-                            span: to_span(word).unwrap(),
-                        });
+            if let Ok(hex_number) = hex_number::parse_hex_number(word) {
+                return Ok((
+                    match hex_number {
+                        hex_number::HexNumber::Byte(value) => Token::RawHexByte(value),
+                        hex_number::HexNumber::Short(value) => Token::RawHexShort(value),
                     }
-                    2 => {
-                        return Ok((
-                            Token::RawHexByte(x as u8).spanning(to_span(word).unwrap()),
-                            Vec::new(),
-                        ));
-                    }
-                    4 => {
-                        return Ok((
-                            Token::RawHexShort(x as u16).spanning(to_span(word).unwrap()),
-                            Vec::new(),
-                        ));
-                    }
-                    length => {
-                        return Err(Error::HexNumberTooLong {
-                            length,
-                            number: to_string(word),
-                            span: to_span(word).unwrap(),
-                        });
-                    }
-                }
+                    .spanning(to_span(word).unwrap()),
+                    Vec::new(),
+                ));
             };
             if let Some((instruction, new_warnings)) = parse_instruction(word) {
                 return Ok((
@@ -288,7 +288,7 @@ fn parse_macro(rune_span: Span, symbols: &[Spanned<char>]) -> Result<String, Err
         return Err(Error::MacroNameExpected { span: rune_span });
     }
 
-    if let Ok(_) = parse_hex_number(symbols) {
+    if let Ok(_) = hex_number::parse_hex_number(symbols) {
         return Err(Error::MacroCannotBeAHexNumber {
             span: to_span(symbols).unwrap(),
             number: to_string(symbols),
@@ -304,22 +304,6 @@ fn parse_macro(rune_span: Span, symbols: &[Spanned<char>]) -> Result<String, Err
     Ok(to_string(symbols))
 }
 
-fn parse_label(rune_span: Span, symbols: &[Spanned<char>]) -> Result<String, Error> {
-    if symbols.is_empty() {
-        return Err(Error::LabelExpected { span: rune_span });
-    }
-
-    Ok(to_string(symbols))
-}
-
-fn parse_sublabel(rune_span: Span, symbols: &[Spanned<char>]) -> Result<String, Error> {
-    if symbols.is_empty() {
-        return Err(Error::LabelExpected { span: rune_span });
-    }
-
-    Ok(to_string(symbols))
-}
-
 fn parse_identifier(rune_span: Span, symbols: &[Spanned<char>]) -> Result<Identifier, Error> {
     if symbols.is_empty() {
         return Err(Error::IdentifierExpected { span: rune_span });
@@ -327,10 +311,10 @@ fn parse_identifier(rune_span: Span, symbols: &[Spanned<char>]) -> Result<Identi
 
     if let Some(Spanned { node: '&', span }) = symbols.first() {
         let rune_span = Span::combine(&rune_span, &span);
-        return Ok(Identifier::Sublabel(parse_sublabel(
-            rune_span,
-            &symbols[1..],
-        )?));
+        if symbols[1..].is_empty() {
+            return Err(Error::SublabelExpected { span: rune_span });
+        }
+        return Ok(Identifier::Sublabel(to_string(&symbols[1..])));
     }
 
     match symbols
@@ -339,36 +323,41 @@ fn parse_identifier(rune_span: Span, symbols: &[Spanned<char>]) -> Result<Identi
         .position(|c| c == '/')
     {
         Some(position) => {
-            let label_symbols = &symbols[..position];
-            let sublabel_symbols = &symbols[position + 1..];
-            let label = parse_label(rune_span, label_symbols)?;
-            let sublabel = parse_sublabel(symbols[position].span, sublabel_symbols)?;
+            if let Some(second_position) = symbols[position + 1..]
+                .iter()
+                .map(|Spanned { node: ch, .. }| *ch)
+                .position(|c| c == '/')
+            {
+                return Err(Error::MoreThanOneSlashInIdentifier {
+                    span: symbols[position + 1 + second_position].span,
+                });
+            }
+
+            let label = {
+                let label_symbols = &symbols[..position];
+                if label_symbols.is_empty() {
+                    return Err(Error::LabelExpected { span: rune_span });
+                }
+                to_string(label_symbols)
+            };
+            let sublabel = {
+                let sublabel_symbols = &symbols[position + 1..];
+                if sublabel_symbols.is_empty() {
+                    return Err(Error::SublabelExpected {
+                        span: symbols[position].span,
+                    });
+                }
+                to_string(sublabel_symbols)
+            };
             Ok(Identifier::Path(label, sublabel))
         }
-        None => Ok(Identifier::Label(parse_label(rune_span, symbols)?)),
-    }
-}
-
-fn parse_hex_number(symbols: &[Spanned<char>]) -> Result<usize, Error> {
-    if symbols.is_empty() {
-        return Ok(0);
-    }
-
-    let mut value: usize = 0;
-
-    for Spanned { node: ch, span } in symbols {
-        if is_hex_digit(*ch) {
-            value = (value << 4) + to_hex_digit(*ch).unwrap() as usize;
-        } else {
-            return Err(Error::HexDigitInvalid {
-                digit: *ch,
-                number: to_string(symbols),
-                span: *span,
-            });
+        None => {
+            if symbols.is_empty() {
+                return Err(Error::LabelExpected { span: rune_span });
+            }
+            Ok(Identifier::Label(to_string(symbols)))
         }
     }
-
-    Ok(value)
 }
 
 /// `symbols` must not be empty.
@@ -468,16 +457,4 @@ fn parse_instruction(symbols: &[Spanned<char>]) -> Option<(Instruction, Vec<Warn
         },
         warnings,
     ));
-}
-
-pub fn to_hex_digit(c: char) -> Option<usize> {
-    match c {
-        '0'..='9' => Some(c as usize - '0' as usize),
-        'a'..='f' => Some(c as usize - 'a' as usize + 10),
-        _ => None,
-    }
-}
-
-pub fn is_hex_digit(c: char) -> bool {
-    to_hex_digit(c).is_some()
 }

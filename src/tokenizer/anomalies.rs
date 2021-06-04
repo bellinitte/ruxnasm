@@ -18,10 +18,32 @@ pub enum Error {
     LabelExpected {
         span: Span,
     },
+    SublabelExpected {
+        span: Span,
+    },
+    SlashInLabelOrSublabel {
+        span: Span,
+    },
+    MoreThanOneSlashInIdentifier {
+        span: Span,
+    },
+    AmpersandAtTheStartOfLabel {
+        span: Span,
+    },
     IdentifierExpected {
         span: Span,
     },
     HexNumberExpected {
+        span: Span,
+    },
+    HexNumberOrCharacterExpected {
+        span: Span,
+    },
+    CharacterExpected {
+        span: Span,
+    },
+    MoreThanOneByteFound {
+        bytes: Vec<u8>,
         span: Span,
     },
     HexDigitInvalid {

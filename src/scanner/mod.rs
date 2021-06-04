@@ -51,12 +51,20 @@ pub fn scan<'a>(input_file_contents: &'a str) -> Result<(Vec<Word>, Vec<Warning>
                             }
                             Some(_) => {
                                 location += 1;
-                            },
-                            None => return Err(Error::NoMatchingClosingParenthesis { span: Span::new(comment_start_location) })
+                            }
+                            None => {
+                                return Err(Error::NoMatchingClosingParenthesis {
+                                    span: Span::new(comment_start_location),
+                                })
+                            }
                         }
                     }
                 }
-                Some(')') => return Err(Error::NoMatchingOpeningParenthesis { span: Span::new(location) }),
+                Some(')') => {
+                    return Err(Error::NoMatchingOpeningParenthesis {
+                        span: Span::new(location),
+                    })
+                }
                 Some(ch) => break 'whitespace ch,
                 None => break 'chars,
             }

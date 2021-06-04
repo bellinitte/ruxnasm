@@ -162,6 +162,44 @@ impl From<tokenizer::Error> for FileDiagnostic {
                     span,
                     message: String::new(),
                 }),
+            tokenizer::Error::SublabelExpected { span } => FileDiagnostic::error()
+                .with_message("expected an sublabel name")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            tokenizer::Error::SlashInLabelOrSublabel { span } => FileDiagnostic::error()
+                .with_message("label and sublabel names can't include the '/' character")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            tokenizer::Error::MoreThanOneSlashInIdentifier { span } => FileDiagnostic::error()
+                .with_message("identifiers can't have more than one '/' character")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            tokenizer::Error::MoreThanOneByteFound { bytes, span } => FileDiagnostic::error()
+                .with_message("found more than one byte after a raw character rune")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: format!(
+                        "found bytes: {:x?}",
+                        bytes
+                    ),
+                }),
+            tokenizer::Error::AmpersandAtTheStartOfLabel { span } => FileDiagnostic::error()
+                .with_message("label names can't have '&' as their first character")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
             tokenizer::Error::IdentifierExpected { span } => FileDiagnostic::error()
                 .with_message("expected an identifier")
                 .with_label(Label {
@@ -171,6 +209,20 @@ impl From<tokenizer::Error> for FileDiagnostic {
                 }),
             tokenizer::Error::HexNumberExpected { span } => FileDiagnostic::error()
                 .with_message("expected a hexadecimal number")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            tokenizer::Error::HexNumberOrCharacterExpected { span } => FileDiagnostic::error()
+                .with_message("expected a hexadecimal number or a character")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            tokenizer::Error::CharacterExpected { span } => FileDiagnostic::error()
+                .with_message("expected a character")
                 .with_label(Label {
                     style: LabelStyle::Primary,
                     span,
