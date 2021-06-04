@@ -75,14 +75,27 @@ pub fn scan<'a>(input_file_contents: &'a str) -> Result<(Vec<Word>, Vec<Warning>
         location += 1;
         let mut ignored_start: Option<Location> = None;
 
-        while !is_delimiter(chars.peek()) {
-            let ch = chars.next().unwrap();
-            if symbols.len() < 64 {
-                symbols.push(ch.spanning(Span::new(location)));
-            } else {
-                ignored_start = Some(location);
+        // TODO: Refactor the string scanning
+        if ch == '"' || ch == '\'' {
+            while chars.peek().is_none() || !is_whitespace(*chars.peek().unwrap()) {
+                let ch = chars.next().unwrap();
+                if symbols.len() < 64 {
+                    symbols.push(ch.spanning(Span::new(location)));
+                } else {
+                    ignored_start = Some(location);
+                }
+                location += 1;
             }
-            location += 1;
+        } else {
+            while !is_delimiter(chars.peek()) {
+                let ch = chars.next().unwrap();
+                if symbols.len() < 64 {
+                    symbols.push(ch.spanning(Span::new(location)));
+                } else {
+                    ignored_start = Some(location);
+                }
+                location += 1;
+            }
         }
 
         words.push(Word::new(&symbols));
