@@ -1,6 +1,6 @@
 # ruxnasm
 
-[![CI](https://github.com/karolbelina/ruxnasm/actions/workflows/ci.yml/badge.svg)](https://github.com/karolbelina/ruxnasm/actions/workflows/ci.yml)
+[![CI](https://github.com/karolbelina/ruxnasm/actions/workflows/ci.yml/badge.svg)](https://github.com/karolbelina/ruxnasm/actions/workflows/ci.yml) [![crates.io](https://img.shields.io/crates/v/ruxnasm.svg)](https://crates.io/crates/ruxnasm)
 
 :construction: Not in a useful state yet :construction:
 
@@ -39,7 +39,7 @@ You can build and install Ruxnasm from source using Cargo &mdash; Rust's package
   ```
 - #### From crates.io
 
-  Ruxnasm can be fetched from the crates.io package registry. To build and install the most recent release of Ruxnasm, run
+  Ruxnasm can be fetched from the [crates.io](https://crates.io/crates/ruxnasm) package registry. To build and install the most recent release of Ruxnasm, run
   ```console
   cargo install ruxnasm
   ```
@@ -56,13 +56,13 @@ The library is available on [crates.io](https://crates.io/crates/ruxnasm) and ca
 [dependencies]
 ruxnasm = "0.1.0"
 ```
-Then use it in your code like this:
+and then used in your code like this:
 ```rust
 let (binary, _) = ruxnasm::assemble("|0100 #02 #03 ADD").unwrap();
 
 assert_eq!(binary, [0x01, 0x02, 0x01, 0x03, 0x18]);
 ```
-The code above `unwrap`s the result, but could just as well handle all the errors and warnings returned from the `assemble` function in case there were any.
+The code above unwraps the result, but could just as well handle all the errors and warnings returned from the `assemble` function in case there were any.
 
 ## License
 
