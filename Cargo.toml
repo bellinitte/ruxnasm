@@ -3,6 +3,13 @@ name = "ruxnasm"
 version = "0.1.0"
 authors = ["Karol Belina <karolbelina@gmail.com>"]
 edition = "2018"
+description = "Alternative Uxntal assembler focused on error reporting"
+readme = "README.md"
+repository = "https://github.com/karolbelina/ruxnasm"
+license = "MIT"
+keywords = ["assembler", "uxn", "uxntal"]
+categories = ["command-line-utilities", "compilers"]
+exclude = [".github", ".vscode"]
 
 [[bin]]
 name = "ruxnasm"
