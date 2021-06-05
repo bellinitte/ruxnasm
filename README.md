@@ -1,6 +1,8 @@
 # ruxnasm
 
-[![CI](https://github.com/karolbelina/ruxnasm/actions/workflows/ci.yml/badge.svg)](https://github.com/karolbelina/ruxnasm/actions/workflows/ci.yml) [![crates.io](https://img.shields.io/crates/v/ruxnasm.svg)](https://crates.io/crates/ruxnasm) [![docs.rs](https://docs.rs/ruxnasm/badge.svg)](https://docs.rs/ruxnasm)
+[![CI](https://github.com/karolbelina/ruxnasm/actions/workflows/ci.yml/badge.svg)](https://github.com/karolbelina/ruxnasm/actions/workflows/ci.yml)
+[![crates.io](https://img.shields.io/crates/v/ruxnasm.svg)](https://crates.io/crates/ruxnasm)
+[![docs.rs](https://docs.rs/ruxnasm/badge.svg)](https://docs.rs/ruxnasm)
 
 :construction: Not in a useful state yet :construction:
 
@@ -8,7 +10,7 @@ Ruxnasm is an assembler for [Uxntal][uxntal], a programming language for the [Ux
 
 ## Quick start
 
-```
+```console
 cargo run -- examples/helloworld.tal helloworld.rom
 uxnemu helloworld.rom
 ```
@@ -54,7 +56,7 @@ pub fn assemble(source: impl AsRef<str>) -> Result<Vec<u8>>
 The library is available on [crates.io](https://crates.io/crates/ruxnasm) and can be included in your Cargo-enabled project like this:
 ```toml
 [dependencies]
-ruxnasm = "0.1.0"
+ruxnasm = "*"
 ```
 and then used in your code like this:
 ```rust
