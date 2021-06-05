@@ -1,9 +1,9 @@
 #[derive(Debug, Copy, Clone)]
 pub(crate) struct Instruction {
-    pub instruction_kind: InstructionKind,
-    pub keep: bool,
-    pub r#return: bool,
-    pub short: bool,
+    pub(crate) instruction_kind: InstructionKind,
+    pub(crate) keep: bool,
+    pub(crate) r#return: bool,
+    pub(crate) short: bool,
 }
 
 #[derive(Debug, Copy, Clone)]

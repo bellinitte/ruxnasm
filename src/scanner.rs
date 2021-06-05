@@ -54,7 +54,7 @@ pub(crate) fn scan<'a>(
                             }
                             None => {
                                 return Err(Error::NoMatchingClosingParenthesis {
-                                    span: Span::new(comment_start_location),
+                                    span: Span::new(comment_start_location).into(),
                                 })
                             }
                         }
@@ -62,7 +62,7 @@ pub(crate) fn scan<'a>(
                 }
                 Some(')') => {
                     return Err(Error::NoMatchingOpeningParenthesis {
-                        span: Span::new(location),
+                        span: Span::new(location).into(),
                     })
                 }
                 Some(ch) => break 'whitespace ch,
@@ -109,7 +109,8 @@ pub(crate) fn scan<'a>(
                 span: Span {
                     from: ignored_location,
                     to: location,
-                },
+                }
+                .into(),
             });
         }
     }

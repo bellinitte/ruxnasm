@@ -8,8 +8,8 @@ use std::{
 };
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct Location {
-    pub offset: usize,
+pub(crate) struct Location {
+    pub(crate) offset: usize,
 }
 
 impl Add<usize> for Location {
@@ -29,20 +29,20 @@ impl AddAssign<usize> for Location {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct Span {
-    pub from: Location,
-    pub to: Location,
+pub(crate) struct Span {
+    pub(crate) from: Location,
+    pub(crate) to: Location,
 }
 
 impl Span {
-    pub fn new(location: Location) -> Self {
+    pub(crate) fn new(location: Location) -> Self {
         Self {
             from: location,
             to: location + 1,
         }
     }
 
-    pub fn combine(start: &Span, end: &Span) -> Self {
+    pub(crate) fn combine(start: &Span, end: &Span) -> Self {
         Self {
             from: start.from,
             to: end.to,
@@ -50,26 +50,24 @@ impl Span {
     }
 }
 
-impl From<Range<usize>> for Span {
-    fn from(range: Range<usize>) -> Self {
+impl From<Span> for Range<usize> {
+    fn from(span: Span) -> Self {
         Self {
-            from: Location {
-                offset: range.start,
-            },
-            to: Location { offset: range.end },
+            start: span.from.offset,
+            end: span.to.offset,
         }
     }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub(crate) struct Spanned<T> {
-    pub node: T,
-    pub span: Span,
+    pub(crate) node: T,
+    pub(crate) span: Span,
 }
 
 impl<T> Spanned<T> {
     #[inline]
-    pub fn map<U, F: FnOnce(T) -> U>(self, f: F) -> Spanned<U> {
+    pub(crate) fn map<U, F: FnOnce(T) -> U>(self, f: F) -> Spanned<U> {
         Spanned {
             node: f(self.node),
             span: self.span,

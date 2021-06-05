@@ -1,11 +1,11 @@
 use super::{Span, Spanned};
 
-pub enum HexNumber {
+pub(crate) enum HexNumber {
     Byte(u8),
     Short(u16),
 }
 
-pub enum Error {
+pub(crate) enum Error {
     DigitExpected,
     DigitInvalid { digit: char, span: Span },
     UnevenLength { length: usize },

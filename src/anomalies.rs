@@ -1,114 +1,114 @@
-use super::Span;
+use std::ops::Range;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Warning {
     TokenTrimmed {
-        span: Span,
+        span: Range<usize>,
     },
     InstructionModeDefinedMoreThanOnce {
         instruction_mode: char,
         instruction: String,
-        span: Span,
-        other_span: Span,
+        span: Range<usize>,
+        other_span: Range<usize>,
     },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Error {
     NoMatchingClosingParenthesis {
-        span: Span,
+        span: Range<usize>,
     },
     NoMatchingOpeningParenthesis {
-        span: Span,
+        span: Range<usize>,
     },
     MacroNameExpected {
-        span: Span,
+        span: Range<usize>,
     },
     LabelExpected {
-        span: Span,
+        span: Range<usize>,
     },
     SublabelExpected {
-        span: Span,
+        span: Range<usize>,
     },
     SlashInLabelOrSublabel {
-        span: Span,
+        span: Range<usize>,
     },
     MoreThanOneSlashInIdentifier {
-        span: Span,
+        span: Range<usize>,
     },
     AmpersandAtTheStartOfLabel {
-        span: Span,
+        span: Range<usize>,
     },
     IdentifierExpected {
-        span: Span,
+        span: Range<usize>,
     },
     HexNumberExpected {
-        span: Span,
+        span: Range<usize>,
     },
     HexNumberOrCharacterExpected {
-        span: Span,
+        span: Range<usize>,
     },
     CharacterExpected {
-        span: Span,
+        span: Range<usize>,
     },
     MoreThanOneByteFound {
         bytes: Vec<u8>,
-        span: Span,
+        span: Range<usize>,
     },
     HexDigitInvalid {
         digit: char,
         number: String,
-        span: Span,
+        span: Range<usize>,
     },
     HexNumberUnevenLength {
         length: usize,
         number: String,
-        span: Span,
+        span: Range<usize>,
     },
     HexNumberTooLong {
         length: usize,
         number: String,
-        span: Span,
+        span: Range<usize>,
     },
     MacroCannotBeAHexNumber {
         number: String,
-        span: Span,
+        span: Range<usize>,
     },
     MacroCannotBeAnInstruction {
         instruction: String,
-        span: Span,
+        span: Range<usize>,
     },
     MacroUndefined {
         name: String,
-        span: Span,
+        span: Range<usize>,
     },
     MacroDefinedMoreThanOnce {
         name: String,
-        span: Span,
-        other_span: Span,
+        span: Range<usize>,
+        other_span: Range<usize>,
     },
     LabelDefinedMoreThanOnce {
         name: String,
-        span: Span,
-        other_span: Span,
+        span: Range<usize>,
+        other_span: Range<usize>,
     },
     OpeningBraceNotAfterMacroDefinition {
-        span: Span,
+        span: Range<usize>,
     },
     NoMatchingOpeningBrace {
-        span: Span,
+        span: Range<usize>,
     },
     NoMatchingClosingBrace {
-        span: Span,
+        span: Range<usize>,
     },
     SublabelDefinedWithoutScope {
         name: String,
-        span: Span,
+        span: Range<usize>,
     },
     NoMatchingOpeningBracket {
-        span: Span,
+        span: Range<usize>,
     },
     NoMatchingClosingBracket {
-        span: Span,
+        span: Range<usize>,
     },
 }

@@ -1,4 +1,4 @@
-use ruxnasm::Span;
+use std::ops::Range;
 
 macro_rules! impl_severities {
     ($builder: ident) => {
@@ -146,7 +146,7 @@ pub enum Severity {
 #[derive(Debug, Clone)]
 pub struct Label {
     pub style: LabelStyle,
-    pub span: Span,
+    pub span: Range<usize>,
     pub message: String,
 }
 
@@ -182,7 +182,7 @@ impl From<Label> for codespan_reporting::diagnostic::Label<()> {
         Self {
             style: label.style.into(),
             file_id: (),
-            range: label.span.from.offset..label.span.to.offset,
+            range: label.span,
             message: label.message,
         }
     }
