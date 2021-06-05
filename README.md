@@ -1,6 +1,6 @@
 # ruxnasm
 
-[![CI](https://github.com/karolbelina/ruxnasm/actions/workflows/ci.yml/badge.svg)](https://github.com/karolbelina/ruxnasm/actions/workflows/ci.yml) [![crates.io](https://img.shields.io/crates/v/ruxnasm.svg)](https://crates.io/crates/ruxnasm)
+[![CI](https://github.com/karolbelina/ruxnasm/actions/workflows/ci.yml/badge.svg)](https://github.com/karolbelina/ruxnasm/actions/workflows/ci.yml) [![crates.io](https://img.shields.io/crates/v/ruxnasm.svg)](https://crates.io/crates/ruxnasm) [![docs.rs](https://docs.rs/ruxnasm/badge.svg)](https://docs.rs/ruxnasm)
 
 :construction: Not in a useful state yet :construction:
 
@@ -49,7 +49,7 @@ You can build and install Ruxnasm from source using Cargo &mdash; Rust's package
 
 Besides being a command-line tool, Ruxnasm is also available as a library for the Rust programming language. It exposes the `assemble` function, which can turn a string with an Uxntal program into an Uxn binary.
 ```rust
-fn assemble(input_file_contents: impl AsRef<str>) -> Result<Vec<u8>>;
+pub fn assemble(source: impl AsRef<str>) -> Result<Vec<u8>>
 ```
 The library is available on [crates.io](https://crates.io/crates/ruxnasm) and can be included in your Cargo-enabled project like this:
 ```toml

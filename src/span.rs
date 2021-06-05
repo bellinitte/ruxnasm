@@ -4,7 +4,7 @@ use crate::{
 };
 use std::{
     fmt,
-    ops::{Add, AddAssign},
+    ops::{Add, AddAssign, Range},
 };
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -46,6 +46,17 @@ impl Span {
         Self {
             from: start.from,
             to: end.to,
+        }
+    }
+}
+
+impl From<Range<usize>> for Span {
+    fn from(range: Range<usize>) -> Self {
+        Self {
+            from: Location {
+                offset: range.start,
+            },
+            to: Location { offset: range.end },
         }
     }
 }

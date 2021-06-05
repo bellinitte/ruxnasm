@@ -8,8 +8,8 @@ pub(crate) mod walker;
 
 pub use anomalies::{Error, Warning};
 pub(crate) use instruction::{Instruction, InstructionKind};
-pub use span::Span;
-pub(crate) use span::{Location, Spanned, Spanning};
+pub use span::{Location, Span};
+pub(crate) use span::{Spanned, Spanning};
 pub(crate) use token::{Identifier, Token};
 use walker::walk;
 

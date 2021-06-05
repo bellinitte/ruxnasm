@@ -1,6 +1,6 @@
 use super::Span;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Warning {
     TokenTrimmed {
         span: Span,
@@ -13,7 +13,7 @@ pub enum Warning {
     },
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Error {
     NoMatchingClosingParenthesis {
         span: Span,
