@@ -13,12 +13,12 @@ pub use token::{Identifier, Token};
 use walker::walk;
 
 pub fn assemble(
-    input_file_contents: &str,
+    input_file_contents: impl AsRef<str>,
 ) -> Result<(Vec<u8>, Vec<Warning>), (Vec<Error>, Vec<Warning>)> {
     let mut errors = Vec::new();
     let mut warnings = Vec::new();
 
-    let words = match scanner::scan(input_file_contents) {
+    let words = match scanner::scan(input_file_contents.as_ref()) {
         Ok((words, new_warnings)) => {
             warnings.extend(new_warnings.iter().cloned().map(Warning::from));
             words

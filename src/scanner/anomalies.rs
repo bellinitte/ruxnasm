@@ -1,11 +1,11 @@
 use crate::Span;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Warning {
     TokenTrimmed { span: Span },
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Error {
     NoMatchingClosingParenthesis { span: Span },
     NoMatchingOpeningParenthesis { span: Span },

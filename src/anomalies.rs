@@ -1,6 +1,6 @@
 use crate::{scanner, tokenizer, walker};
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Warning {
     Scanner(scanner::Warning),
     Tokenizer(tokenizer::Warning),
@@ -18,7 +18,7 @@ impl From<tokenizer::Warning> for Warning {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Error {
     Scanner(scanner::Error),
     Tokenizer(tokenizer::Error),

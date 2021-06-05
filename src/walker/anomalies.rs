@@ -1,6 +1,6 @@
 use super::Span;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Error {
     MacroUndefined {
         name: String,

@@ -1,6 +1,6 @@
 use super::Span;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Warning {
     InstructionModeDefinedMoreThanOnce {
         instruction_mode: char,
@@ -10,7 +10,7 @@ pub enum Warning {
     },
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Error {
     MacroNameExpected {
         span: Span,
