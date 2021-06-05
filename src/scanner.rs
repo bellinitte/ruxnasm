@@ -1,7 +1,5 @@
+pub use crate::anomalies::{Error, Warning};
 use crate::{tokenizer::Word, Location, Span, Spanned, Spanning};
-pub use anomalies::{Error, Warning};
-
-mod anomalies;
 
 const WHITESPACES: [char; 6] = [' ', '\t', '\n', 0x0b as char, 0x0c as char, '\r'];
 const DELIMITERS: [char; 6] = ['(', ')', '[', ']', '{', '}'];
@@ -17,7 +15,7 @@ fn is_whitespace(ch: char) -> bool {
     WHITESPACES.contains(&ch)
 }
 
-pub fn scan<'a>(
+pub(crate) fn scan<'a>(
     input_file_contents: &'a str,
 ) -> Result<(Vec<Word>, Vec<crate::Warning>), crate::Error> {
     let mut chars = input_file_contents.chars().peekable();
@@ -57,8 +55,7 @@ pub fn scan<'a>(
                             None => {
                                 return Err(Error::NoMatchingClosingParenthesis {
                                     span: Span::new(comment_start_location),
-                                }
-                                .into())
+                                })
                             }
                         }
                     }
@@ -66,8 +63,7 @@ pub fn scan<'a>(
                 Some(')') => {
                     return Err(Error::NoMatchingOpeningParenthesis {
                         span: Span::new(location),
-                    }
-                    .into())
+                    })
                 }
                 Some(ch) => break 'whitespace ch,
                 None => break 'chars,
@@ -109,15 +105,12 @@ pub fn scan<'a>(
         words.push(Word::new(&symbols));
 
         if let Some(ignored_location) = ignored_start {
-            warnings.push(
-                Warning::TokenTrimmed {
-                    span: Span {
-                        from: ignored_location,
-                        to: location,
-                    },
-                }
-                .into(),
-            );
+            warnings.push(Warning::TokenTrimmed {
+                span: Span {
+                    from: ignored_location,
+                    to: location,
+                },
+            });
         }
     }
 

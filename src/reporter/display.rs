@@ -1,7 +1,6 @@
 use super::diagnostic::{Label, LabelStyle};
 use super::{FileDiagnostic, VoidDiagnostic};
 use crate::{argument_parser, reader, writer};
-use ruxnasm::{scanner, tokenizer, walker};
 
 impl From<crate::InternalAssemblerError> for VoidDiagnostic {
     fn from(error: crate::InternalAssemblerError) -> Self {
@@ -66,29 +65,242 @@ impl From<writer::Error> for VoidDiagnostic {
 impl From<ruxnasm::Error> for FileDiagnostic {
     fn from(error: ruxnasm::Error) -> Self {
         match error {
-            ruxnasm::Error::Scanner(error) => error.into(),
-            ruxnasm::Error::Tokenizer(error) => error.into(),
-            ruxnasm::Error::Walker(error) => error.into(),
-        }
-    }
-}
+            ruxnasm::Error::NoMatchingClosingParenthesis { span } => FileDiagnostic::error()
+                .with_message("no matching closing parenthesis found for an opening parenthesis")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            ruxnasm::Error::NoMatchingOpeningParenthesis { span } => FileDiagnostic::error()
+                .with_message("no matching opening parenthesis found for a closing parenthesis")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
 
-impl From<ruxnasm::Warning> for FileDiagnostic {
-    fn from(warning: ruxnasm::Warning) -> Self {
-        match warning {
-            ruxnasm::Warning::Scanner(warning) => warning.into(),
-            ruxnasm::Warning::Tokenizer(warning) => warning.into(),
-        }
-    }
-}
-
-impl From<scanner::Warning> for FileDiagnostic {
-    fn from(warning: scanner::Warning) -> Self {
-        match warning {
-            scanner::Warning::TokenTrimmed { span } => FileDiagnostic::warning()
+            ruxnasm::Error::MacroNameExpected { span } => FileDiagnostic::error()
+                .with_message("expected a macro name")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            ruxnasm::Error::LabelExpected { span } => FileDiagnostic::error()
+                .with_message("expected an label name")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            ruxnasm::Error::SublabelExpected { span } => FileDiagnostic::error()
+                .with_message("expected an sublabel name")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            ruxnasm::Error::SlashInLabelOrSublabel { span } => FileDiagnostic::error()
+                .with_message("label and sublabel names can't include the '/' character")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            ruxnasm::Error::MoreThanOneSlashInIdentifier { span } => FileDiagnostic::error()
+                .with_message("identifiers can't have more than one '/' character")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            ruxnasm::Error::MoreThanOneByteFound { bytes, span } => FileDiagnostic::error()
+                .with_message("found more than one byte after a raw character rune")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: format!("found bytes: {:x?}", bytes),
+                }),
+            ruxnasm::Error::AmpersandAtTheStartOfLabel { span } => FileDiagnostic::error()
+                .with_message("label names can't have '&' as their first character")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            ruxnasm::Error::IdentifierExpected { span } => FileDiagnostic::error()
+                .with_message("expected an identifier")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            ruxnasm::Error::HexNumberExpected { span } => FileDiagnostic::error()
+                .with_message("expected a hexadecimal number")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            ruxnasm::Error::HexNumberOrCharacterExpected { span } => FileDiagnostic::error()
+                .with_message("expected a hexadecimal number or a character")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            ruxnasm::Error::CharacterExpected { span } => FileDiagnostic::error()
+                .with_message("expected a character")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            ruxnasm::Error::HexDigitInvalid {
+                digit,
+                number,
+                span,
+            } => FileDiagnostic::error()
                 .with_message(format!(
-                    "token has been cut off, as it's longer than 64 characters"
+                    "invalid digit `{}` in a hexadecimal number `{}`",
+                    digit, number
                 ))
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            ruxnasm::Error::HexNumberUnevenLength {
+                length,
+                number,
+                span,
+            } => FileDiagnostic::error()
+                .with_message(format!(
+                    "hexadecimal number `{}` has an uneven length of {}",
+                    number, length
+                ))
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                })
+                .with_note("help: pad the number with zeros"),
+            ruxnasm::Error::HexNumberTooLong {
+                length,
+                number,
+                span,
+            } => FileDiagnostic::error()
+                .with_message(format!(
+                    "hexadecimal number `{}` of length {} is too long",
+                    number, length
+                ))
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            ruxnasm::Error::MacroCannotBeAHexNumber { number, span } => FileDiagnostic::error()
+                .with_message(format!(
+                    "`{}` cannot be used as a macro name, as it is a valid hexadecimal number",
+                    number
+                ))
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            ruxnasm::Error::MacroCannotBeAnInstruction { instruction, span } => {
+                FileDiagnostic::error()
+                    .with_message(format!(
+                        "`{}` cannot be used as a macro name, as it is a valid instruction",
+                        instruction
+                    ))
+                    .with_label(Label {
+                        style: LabelStyle::Primary,
+                        span,
+                        message: String::new(),
+                    })
+            }
+            ruxnasm::Error::MacroUndefined { name, span } => FileDiagnostic::error()
+                .with_message(format!("macro `{}` is not defined", name))
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            ruxnasm::Error::MacroDefinedMoreThanOnce {
+                name,
+                span,
+                other_span,
+            } => FileDiagnostic::error()
+                .with_message(format!("macro `{}` is defined multiple times", name))
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: format!("macro `{}` redefined here", name),
+                })
+                .with_label(Label {
+                    style: LabelStyle::Secondary,
+                    span: other_span,
+                    message: format!("previous definition of macro `{}` here", name),
+                }),
+            ruxnasm::Error::LabelDefinedMoreThanOnce {
+                name,
+                span,
+                other_span,
+            } => FileDiagnostic::error()
+                .with_message(format!("label `{}` is defined multiple times", name))
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: format!("label `{}` redefined here", name),
+                })
+                .with_label(Label {
+                    style: LabelStyle::Secondary,
+                    span: other_span,
+                    message: format!("previous definition of label `{}` here", name),
+                }),
+            ruxnasm::Error::OpeningBraceNotAfterMacroDefinition { span } => FileDiagnostic::error()
+                .with_message("found an opening brace that is not a part of a macro definition")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            ruxnasm::Error::NoMatchingOpeningBrace { span } => FileDiagnostic::error()
+                .with_message("no matching opening brace found for a closing brace")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            ruxnasm::Error::NoMatchingClosingBrace { span } => FileDiagnostic::error()
+                .with_message("no matching closing brace found for an opening brace")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            ruxnasm::Error::SublabelDefinedWithoutScope { name, span } => FileDiagnostic::error()
+                .with_message(format!(
+                    "sublabel `{}` was defined without a previously defined label",
+                    name
+                ))
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            ruxnasm::Error::NoMatchingOpeningBracket { span } => FileDiagnostic::error()
+                .with_message("no matching opening bracket found for a closing bracket")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            ruxnasm::Error::NoMatchingClosingBracket { span } => FileDiagnostic::error()
+                .with_message("no matching closing bracket found for an opening bracket")
                 .with_label(Label {
                     style: LabelStyle::Primary,
                     span,
@@ -98,10 +310,19 @@ impl From<scanner::Warning> for FileDiagnostic {
     }
 }
 
-impl From<tokenizer::Warning> for FileDiagnostic {
-    fn from(warning: tokenizer::Warning) -> Self {
+impl From<ruxnasm::Warning> for FileDiagnostic {
+    fn from(warning: ruxnasm::Warning) -> Self {
         match warning {
-            tokenizer::Warning::InstructionModeDefinedMoreThanOnce {
+            ruxnasm::Warning::TokenTrimmed { span } => FileDiagnostic::warning()
+                .with_message(format!(
+                    "token has been cut off, as it's longer than 64 characters"
+                ))
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            ruxnasm::Warning::InstructionModeDefinedMoreThanOnce {
                 instruction_mode,
                 instruction,
                 span,
@@ -120,267 +341,6 @@ impl From<tokenizer::Warning> for FileDiagnostic {
                     style: LabelStyle::Secondary,
                     span: other_span,
                     message: format!("previous definition of mode `{}` here", instruction_mode),
-                }),
-        }
-    }
-}
-
-impl From<scanner::Error> for FileDiagnostic {
-    fn from(error: scanner::Error) -> Self {
-        match error {
-            scanner::Error::NoMatchingClosingParenthesis { span } => FileDiagnostic::error()
-                .with_message("no matching closing parenthesis found for an opening parenthesis")
-                .with_label(Label {
-                    style: LabelStyle::Primary,
-                    span,
-                    message: String::new(),
-                }),
-            scanner::Error::NoMatchingOpeningParenthesis { span } => FileDiagnostic::error()
-                .with_message("no matching opening parenthesis found for a closing parenthesis")
-                .with_label(Label {
-                    style: LabelStyle::Primary,
-                    span,
-                    message: String::new(),
-                }),
-        }
-    }
-}
-
-impl From<tokenizer::Error> for FileDiagnostic {
-    fn from(error: tokenizer::Error) -> Self {
-        match error {
-            tokenizer::Error::MacroNameExpected { span } => FileDiagnostic::error()
-                .with_message("expected a macro name")
-                .with_label(Label {
-                    style: LabelStyle::Primary,
-                    span,
-                    message: String::new(),
-                }),
-            tokenizer::Error::LabelExpected { span } => FileDiagnostic::error()
-                .with_message("expected an label name")
-                .with_label(Label {
-                    style: LabelStyle::Primary,
-                    span,
-                    message: String::new(),
-                }),
-            tokenizer::Error::SublabelExpected { span } => FileDiagnostic::error()
-                .with_message("expected an sublabel name")
-                .with_label(Label {
-                    style: LabelStyle::Primary,
-                    span,
-                    message: String::new(),
-                }),
-            tokenizer::Error::SlashInLabelOrSublabel { span } => FileDiagnostic::error()
-                .with_message("label and sublabel names can't include the '/' character")
-                .with_label(Label {
-                    style: LabelStyle::Primary,
-                    span,
-                    message: String::new(),
-                }),
-            tokenizer::Error::MoreThanOneSlashInIdentifier { span } => FileDiagnostic::error()
-                .with_message("identifiers can't have more than one '/' character")
-                .with_label(Label {
-                    style: LabelStyle::Primary,
-                    span,
-                    message: String::new(),
-                }),
-            tokenizer::Error::MoreThanOneByteFound { bytes, span } => FileDiagnostic::error()
-                .with_message("found more than one byte after a raw character rune")
-                .with_label(Label {
-                    style: LabelStyle::Primary,
-                    span,
-                    message: format!("found bytes: {:x?}", bytes),
-                }),
-            tokenizer::Error::AmpersandAtTheStartOfLabel { span } => FileDiagnostic::error()
-                .with_message("label names can't have '&' as their first character")
-                .with_label(Label {
-                    style: LabelStyle::Primary,
-                    span,
-                    message: String::new(),
-                }),
-            tokenizer::Error::IdentifierExpected { span } => FileDiagnostic::error()
-                .with_message("expected an identifier")
-                .with_label(Label {
-                    style: LabelStyle::Primary,
-                    span,
-                    message: String::new(),
-                }),
-            tokenizer::Error::HexNumberExpected { span } => FileDiagnostic::error()
-                .with_message("expected a hexadecimal number")
-                .with_label(Label {
-                    style: LabelStyle::Primary,
-                    span,
-                    message: String::new(),
-                }),
-            tokenizer::Error::HexNumberOrCharacterExpected { span } => FileDiagnostic::error()
-                .with_message("expected a hexadecimal number or a character")
-                .with_label(Label {
-                    style: LabelStyle::Primary,
-                    span,
-                    message: String::new(),
-                }),
-            tokenizer::Error::CharacterExpected { span } => FileDiagnostic::error()
-                .with_message("expected a character")
-                .with_label(Label {
-                    style: LabelStyle::Primary,
-                    span,
-                    message: String::new(),
-                }),
-            tokenizer::Error::HexDigitInvalid {
-                digit,
-                number,
-                span,
-            } => FileDiagnostic::error()
-                .with_message(format!(
-                    "invalid digit `{}` in a hexadecimal number `{}`",
-                    digit, number
-                ))
-                .with_label(Label {
-                    style: LabelStyle::Primary,
-                    span,
-                    message: String::new(),
-                }),
-            tokenizer::Error::HexNumberUnevenLength {
-                length,
-                number,
-                span,
-            } => FileDiagnostic::error()
-                .with_message(format!(
-                    "hexadecimal number `{}` has an uneven length of {}",
-                    number, length
-                ))
-                .with_label(Label {
-                    style: LabelStyle::Primary,
-                    span,
-                    message: String::new(),
-                })
-                .with_note("help: pad the number with zeros"),
-            tokenizer::Error::HexNumberTooLong {
-                length,
-                number,
-                span,
-            } => FileDiagnostic::error()
-                .with_message(format!(
-                    "hexadecimal number `{}` of length {} is too long",
-                    number, length
-                ))
-                .with_label(Label {
-                    style: LabelStyle::Primary,
-                    span,
-                    message: String::new(),
-                }),
-            tokenizer::Error::MacroCannotBeAHexNumber { number, span } => FileDiagnostic::error()
-                .with_message(format!(
-                    "`{}` cannot be used as a macro name, as it is a valid hexadecimal number",
-                    number
-                ))
-                .with_label(Label {
-                    style: LabelStyle::Primary,
-                    span,
-                    message: String::new(),
-                }),
-            tokenizer::Error::MacroCannotBeAnInstruction { instruction, span } => {
-                FileDiagnostic::error()
-                    .with_message(format!(
-                        "`{}` cannot be used as a macro name, as it is a valid instruction",
-                        instruction
-                    ))
-                    .with_label(Label {
-                        style: LabelStyle::Primary,
-                        span,
-                        message: String::new(),
-                    })
-            }
-        }
-    }
-}
-
-impl From<walker::Error> for FileDiagnostic {
-    fn from(error: walker::Error) -> Self {
-        match error {
-            walker::Error::MacroUndefined { name, span } => FileDiagnostic::error()
-                .with_message(format!("macro `{}` is not defined", name))
-                .with_label(Label {
-                    style: LabelStyle::Primary,
-                    span,
-                    message: String::new(),
-                }),
-            walker::Error::MacroDefinedMoreThanOnce {
-                name,
-                span,
-                other_span,
-            } => FileDiagnostic::error()
-                .with_message(format!("macro `{}` is defined multiple times", name))
-                .with_label(Label {
-                    style: LabelStyle::Primary,
-                    span,
-                    message: format!("macro `{}` redefined here", name),
-                })
-                .with_label(Label {
-                    style: LabelStyle::Secondary,
-                    span: other_span,
-                    message: format!("previous definition of macro `{}` here", name),
-                }),
-            walker::Error::LabelDefinedMoreThanOnce {
-                name,
-                span,
-                other_span,
-            } => FileDiagnostic::error()
-                .with_message(format!("label `{}` is defined multiple times", name))
-                .with_label(Label {
-                    style: LabelStyle::Primary,
-                    span,
-                    message: format!("label `{}` redefined here", name),
-                })
-                .with_label(Label {
-                    style: LabelStyle::Secondary,
-                    span: other_span,
-                    message: format!("previous definition of label `{}` here", name),
-                }),
-            walker::Error::OpeningBraceNotAfterMacroDefinition { span } => FileDiagnostic::error()
-                .with_message("found an opening brace that is not a part of a macro definition")
-                .with_label(Label {
-                    style: LabelStyle::Primary,
-                    span,
-                    message: String::new(),
-                }),
-            walker::Error::NoMatchingOpeningBrace { span } => FileDiagnostic::error()
-                .with_message("no matching opening brace found for a closing brace")
-                .with_label(Label {
-                    style: LabelStyle::Primary,
-                    span,
-                    message: String::new(),
-                }),
-            walker::Error::NoMatchingClosingBrace { span } => FileDiagnostic::error()
-                .with_message("no matching closing brace found for an opening brace")
-                .with_label(Label {
-                    style: LabelStyle::Primary,
-                    span,
-                    message: String::new(),
-                }),
-            walker::Error::SublabelDefinedWithoutScope { name, span } => FileDiagnostic::error()
-                .with_message(format!(
-                    "sublabel `{}` was defined without a previously defined label",
-                    name
-                ))
-                .with_label(Label {
-                    style: LabelStyle::Primary,
-                    span,
-                    message: String::new(),
-                }),
-            walker::Error::NoMatchingOpeningBracket { span } => FileDiagnostic::error()
-                .with_message("no matching opening bracket found for a closing bracket")
-                .with_label(Label {
-                    style: LabelStyle::Primary,
-                    span,
-                    message: String::new(),
-                }),
-            walker::Error::NoMatchingClosingBracket { span } => FileDiagnostic::error()
-                .with_message("no matching closing bracket found for an opening bracket")
-                .with_label(Label {
-                    style: LabelStyle::Primary,
-                    span,
-                    message: String::new(),
                 }),
         }
     }

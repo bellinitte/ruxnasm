@@ -1,8 +1,6 @@
+pub use crate::anomalies::Error;
 use crate::{tokenizer::Word, Span, Spanned, Token};
-pub use anomalies::Error;
 use std::collections::HashMap;
-
-mod anomalies;
 
 #[derive(Default)]
 struct Environment {
@@ -16,7 +14,7 @@ struct Environment {
     sublabel_definitions: HashMap<(String, String), (u16, Span)>,
 }
 
-pub fn walk(words: &[Word]) -> (Vec<crate::Error>, Vec<crate::Warning>) {
+pub(crate) fn walk(words: &[Word]) -> (Vec<crate::Error>, Vec<crate::Warning>) {
     let mut errors = Vec::new();
     let mut warnings = Vec::new();
 
@@ -27,16 +25,13 @@ pub fn walk(words: &[Word]) -> (Vec<crate::Error>, Vec<crate::Warning>) {
     warnings.extend(new_warnings);
 
     for opened_bracket in environment.opened_brackets {
-        errors.push(
-            Error::NoMatchingClosingBracket {
-                span: opened_bracket,
-            }
-            .into(),
-        )
+        errors.push(Error::NoMatchingClosingBracket {
+            span: opened_bracket,
+        })
     }
 
     for opened_brace in environment.opened_braces {
-        errors.push(Error::NoMatchingClosingBrace { span: opened_brace }.into())
+        errors.push(Error::NoMatchingClosingBrace { span: opened_brace })
     }
 
     println!("macros: {:?}\n", environment.macro_definitions.keys());
@@ -77,7 +72,7 @@ fn walk_rec(
                             span,
                         } => {
                             if environment.opened_brackets.pop().is_none() {
-                                errors.push(Error::NoMatchingOpeningBracket { span }.into());
+                                errors.push(Error::NoMatchingOpeningBracket { span });
                             }
                         }
                         Spanned {
@@ -85,14 +80,14 @@ fn walk_rec(
                             span,
                         } => {
                             environment.opened_braces.push(span);
-                            errors.push(Error::OpeningBraceNotAfterMacroDefinition { span }.into());
+                            errors.push(Error::OpeningBraceNotAfterMacroDefinition { span });
                         }
                         Spanned {
                             node: Token::ClosingBrace,
                             span,
                         } => {
                             if environment.opened_braces.pop().is_none() {
-                                errors.push(Error::NoMatchingOpeningBrace { span }.into());
+                                errors.push(Error::NoMatchingOpeningBrace { span });
                             }
                         }
                         Spanned {
@@ -168,14 +163,11 @@ fn walk_rec(
                                 .macro_definitions
                                 .insert(name.clone(), (items, span))
                             {
-                                errors.push(
-                                    Error::MacroDefinedMoreThanOnce {
-                                        name: name.clone(),
-                                        span,
-                                        other_span,
-                                    }
-                                    .into(),
-                                );
+                                errors.push(Error::MacroDefinedMoreThanOnce {
+                                    name: name.clone(),
+                                    span,
+                                    other_span,
+                                });
                             }
                             environment.macro_references.insert(name, 0);
                         }
@@ -188,7 +180,7 @@ fn walk_rec(
                                 errors.extend(new_errors);
                                 warnings.extend(new_warnings);
                             }
-                            None => errors.push(Error::MacroUndefined { name, span }.into()),
+                            None => errors.push(Error::MacroUndefined { name, span }),
                         },
                         Spanned {
                             node: Token::PadAbsolute(value),
@@ -206,14 +198,11 @@ fn walk_rec(
                                 .label_definitions
                                 .insert(name.clone(), (environment.address, span))
                             {
-                                errors.push(
-                                    Error::LabelDefinedMoreThanOnce {
-                                        name: name.clone(),
-                                        span,
-                                        other_span,
-                                    }
-                                    .into(),
-                                );
+                                errors.push(Error::LabelDefinedMoreThanOnce {
+                                    name: name.clone(),
+                                    span,
+                                    other_span,
+                                });
                             }
                             environment.scope = Some(name);
                         }
@@ -228,18 +217,14 @@ fn walk_rec(
                                         (environment.address, span),
                                     )
                                 {
-                                    errors.push(
-                                        Error::LabelDefinedMoreThanOnce {
-                                            name,
-                                            span,
-                                            other_span,
-                                        }
-                                        .into(),
-                                    );
+                                    errors.push(Error::LabelDefinedMoreThanOnce {
+                                        name,
+                                        span,
+                                        other_span,
+                                    });
                                 }
                             }
-                            None => errors
-                                .push(Error::SublabelDefinedWithoutScope { name, span }.into()),
+                            None => errors.push(Error::SublabelDefinedWithoutScope { name, span }),
                         },
                         Spanned {
                             node: Token::LiteralZeroPageAddress(_),

@@ -12,7 +12,7 @@ pub enum Error {
     TooLong { length: usize },
 }
 
-pub fn parse_hex_number(symbols: &[Spanned<char>]) -> Result<HexNumber, Error> {
+pub(crate) fn parse_hex_number(symbols: &[Spanned<char>]) -> Result<HexNumber, Error> {
     let mut value: usize = 0;
 
     for Spanned { node: ch, span } in symbols {
@@ -36,12 +36,12 @@ pub fn parse_hex_number(symbols: &[Spanned<char>]) -> Result<HexNumber, Error> {
     }
 }
 
-pub enum Error2 {
+pub(crate) enum Error2 {
     DigitExpected,
     DigitInvalid { digit: char, span: Span },
 }
 
-pub fn parse_hex_number_unconstrained(symbols: &[Spanned<char>]) -> Result<usize, Error2> {
+pub(crate) fn parse_hex_number_unconstrained(symbols: &[Spanned<char>]) -> Result<usize, Error2> {
     let mut value: usize = 0;
 
     for Spanned { node: ch, span } in symbols {

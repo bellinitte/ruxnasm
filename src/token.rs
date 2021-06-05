@@ -1,8 +1,7 @@
 use super::Instruction;
-use super::{impl_spanning, Span, Spanned, Spanning};
 
 #[derive(Debug, Clone)]
-pub enum Token {
+pub(crate) enum Token {
     OpeningBracket,
     ClosingBracket,
     OpeningBrace,
@@ -27,11 +26,8 @@ pub enum Token {
 }
 
 #[derive(Debug, Clone)]
-pub enum Identifier {
+pub(crate) enum Identifier {
     Label(String),
     Sublabel(String),
     Path(String, String),
 }
-
-impl_spanning!(Token);
-impl_spanning!(Identifier);

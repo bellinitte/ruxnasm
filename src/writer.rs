@@ -1,9 +1,15 @@
-pub use error::Error;
-use std::fs;
-use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::{
+    fs,
+    io::{self, Write},
+};
 
-mod error;
+pub enum Error {
+    CouldNotWriteFile {
+        file_path: PathBuf,
+        io_error: io::Error,
+    },
+}
 
 pub fn write(path: &Path, binary: &[u8]) -> Result<(), Error> {
     let mut file = fs::File::create(path).map_err(|io_error| Error::CouldNotWriteFile {

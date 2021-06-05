@@ -1,11 +1,8 @@
-pub use error::Error;
 use std::{
     env,
     path::{Path, PathBuf},
     process::exit,
 };
-
-mod error;
 
 const HELP_MESSAGE: &'static str = r#"Usage: ruxnasm [OPTIONS] INPUT OUTPUT
 
@@ -29,6 +26,13 @@ impl Arguments {
     pub fn output_file_path(&self) -> &Path {
         &self.output_file_path
     }
+}
+
+pub enum Error {
+    NoInputProvided,
+    NoOutputProvided,
+    UnexpectedArgument { argument: String },
+    UnrecognizedOption { option: String },
 }
 
 pub fn parse_arguments() -> Result<Arguments, Error> {
