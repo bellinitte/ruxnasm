@@ -1,3 +1,4 @@
+use std::fmt;
 use super::{Identifier, Token};
 use super::{Span, Spanned, Spanning};
 use crate::{Instruction, InstructionKind};
@@ -7,26 +8,29 @@ mod anomalies;
 mod hex_number;
 
 #[derive(Clone)]
-enum WordStatus {
-    Pending { symbols: Vec<Spanned<char>> },
-    Evaluated(Evaluated),
-}
-
-#[derive(Clone)]
 enum Evaluated {
     Fine {
         token: Spanned<Token>,
-        warnings: Vec<Warning>,
+        warnings: Vec<crate::Warning>,
     },
     Faulty {
-        errors: Vec<Error>,
-        warnings: Vec<Warning>,
+        errors: Vec<crate::Error>,
+        warnings: Vec<crate::Warning>,
     },
 }
 
-#[derive(Clone)]
+impl fmt::Debug for Evaluated {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Fine { token, .. } => write!(f, "Fine {{ token: {:?} }}", token.node),
+            Self::Faulty { .. } => write!(f, "Faulty"),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct Word {
-    status: WordStatus,
+    evaluated: Evaluated,
 }
 
 impl Word {
@@ -38,44 +42,29 @@ impl Word {
             WHITESPACES.iter().all(|ch| !chars.contains(ch))
         });
 
-        Self {
-            status: WordStatus::Pending {
-                symbols: symbols.to_vec(),
+        let evaluated = match tokenize(symbols) {
+            Ok((token, warnings)) => Evaluated::Fine { token, warnings },
+            Err(error) => Evaluated::Faulty {
+                errors: vec![error],
+                warnings: Vec::new(),
             },
-        }
+        };
+
+        Self { evaluated }
     }
 
     pub fn get_token(
-        &mut self,
-    ) -> Result<(Spanned<Token>, Vec<Warning>), (Vec<Error>, Vec<Warning>)> {
-        match &self.status {
-            WordStatus::Evaluated(Evaluated::Fine { token, warnings }) => {
-                Ok((token.clone(), warnings.clone()))
-            }
-            WordStatus::Evaluated(Evaluated::Faulty { errors, warnings }) => {
-                Err((errors.clone(), warnings.clone()))
-            }
-            WordStatus::Pending { symbols } => match tokenize(symbols) {
-                Ok((token, warnings)) => {
-                    self.status = WordStatus::Evaluated(Evaluated::Fine {
-                        token: token.clone(),
-                        warnings: warnings.clone(),
-                    });
-                    Ok((token, warnings))
-                }
-                Err(error) => {
-                    self.status = WordStatus::Evaluated(Evaluated::Faulty {
-                        errors: vec![error.clone()],
-                        warnings: Vec::new(),
-                    });
-                    Err((vec![error], Vec::new()))
-                }
-            },
+        &self,
+    ) -> Result<(Spanned<Token>, Vec<crate::Warning>), (Vec<crate::Error>, Vec<crate::Warning>)>
+    {
+        match &self.evaluated {
+            Evaluated::Fine { token, warnings } => Ok((token.clone(), warnings.clone())),
+            Evaluated::Faulty { errors, warnings } => Err((errors.clone(), warnings.clone())),
         }
     }
 }
 
-fn tokenize(word: &[Spanned<char>]) -> Result<(Spanned<Token>, Vec<Warning>), Error> {
+fn tokenize(word: &[Spanned<char>]) -> Result<(Spanned<Token>, Vec<crate::Warning>), crate::Error> {
     match word.first().cloned().unwrap() {
         Spanned { node: '[', span } => {
             return Ok((Token::OpeningBracket.spanning(span), Vec::new()))
@@ -92,27 +81,33 @@ fn tokenize(word: &[Spanned<char>]) -> Result<(Spanned<Token>, Vec<Warning>), Er
                     Vec::new(),
                 ));
             }
-            Err(err) => Err(err),
+            Err(err) => Err(err.into()),
         },
         Spanned { node: '|', span } => hex_number::parse_hex_number_unconstrained(&word[1..])
-            .map_err(|err| match err {
-                hex_number::Error2::DigitExpected => Error::HexNumberExpected { span },
-                hex_number::Error2::DigitInvalid { digit, span } => Error::HexDigitInvalid {
-                    digit,
-                    number: to_string(&word[1..]),
-                    span,
-                },
+            .map_err(|err| {
+                match err {
+                    hex_number::Error2::DigitExpected => Error::HexNumberExpected { span },
+                    hex_number::Error2::DigitInvalid { digit, span } => Error::HexDigitInvalid {
+                        digit,
+                        number: to_string(&word[1..]),
+                        span,
+                    },
+                }
+                .into()
             })
             .map(|value| Token::PadAbsolute(value))
             .map(|token| (token.spanning(to_span(word).unwrap()), Vec::new())),
         Spanned { node: '$', span } => hex_number::parse_hex_number_unconstrained(&word[1..])
-            .map_err(|err| match err {
-                hex_number::Error2::DigitExpected => Error::HexNumberExpected { span },
-                hex_number::Error2::DigitInvalid { digit, span } => Error::HexDigitInvalid {
-                    digit,
-                    number: to_string(&word[1..]),
-                    span,
-                },
+            .map_err(|err| {
+                match err {
+                    hex_number::Error2::DigitExpected => Error::HexNumberExpected { span },
+                    hex_number::Error2::DigitInvalid { digit, span } => Error::HexDigitInvalid {
+                        digit,
+                        number: to_string(&word[1..]),
+                        span,
+                    },
+                }
+                .into()
             })
             .map(|value| Token::PadRelative(value))
             .map(|token| (token.spanning(to_span(word).unwrap()), Vec::new())),
@@ -126,7 +121,8 @@ fn tokenize(word: &[Spanned<char>]) -> Result<(Spanned<Token>, Vec<Warning>), Er
                     {
                         Err(Error::SlashInLabelOrSublabel {
                             span: word[1 + position].span,
-                        })
+                        }
+                        .into())
                     } else {
                         Ok((
                             Token::LabelDefine(to_string(&word[1..]))
@@ -135,10 +131,10 @@ fn tokenize(word: &[Spanned<char>]) -> Result<(Spanned<Token>, Vec<Warning>), Er
                         ))
                     }
                 } else {
-                    Err(Error::AmpersandAtTheStartOfLabel { span: word[1].span })
+                    Err(Error::AmpersandAtTheStartOfLabel { span: word[1].span }.into())
                 }
             } else {
-                Err(Error::LabelExpected { span })
+                Err(Error::LabelExpected { span }.into())
             }
         }
         Spanned { node: '&', span } => {
@@ -150,7 +146,8 @@ fn tokenize(word: &[Spanned<char>]) -> Result<(Spanned<Token>, Vec<Warning>), Er
                 {
                     Err(Error::SlashInLabelOrSublabel {
                         span: word[1 + position].span,
-                    })
+                    }
+                    .into())
                 } else {
                     Ok((
                         Token::SublabelDefine(to_string(&word[1..]))
@@ -159,20 +156,21 @@ fn tokenize(word: &[Spanned<char>]) -> Result<(Spanned<Token>, Vec<Warning>), Er
                     ))
                 }
             } else {
-                Err(Error::LabelExpected { span })
+                Err(Error::LabelExpected { span }.into())
             }
         }
         Spanned { node: '#', span } => match hex_number::parse_hex_number(&word[1..]) {
             Ok(hex_number::HexNumber::Byte(value)) => Ok(Token::LiteralHexByte(value)),
             Ok(hex_number::HexNumber::Short(value)) => Ok(Token::LiteralHexShort(value)),
             Err(hex_number::Error::DigitExpected) => {
-                Err(Error::HexNumberOrCharacterExpected { span })
+                Err(Error::HexNumberOrCharacterExpected { span }.into())
             }
             Err(hex_number::Error::DigitInvalid { digit, span }) => Err(Error::HexDigitInvalid {
                 digit,
                 number: to_string(&word[1..]),
                 span,
-            }),
+            }
+            .into()),
             Err(hex_number::Error::UnevenLength { length: 1 }) => {
                 Ok(Token::LiteralHexByte(word[1].node as u8))
             }
@@ -180,12 +178,14 @@ fn tokenize(word: &[Spanned<char>]) -> Result<(Spanned<Token>, Vec<Warning>), Er
                 length,
                 number: to_string(&word[1..]),
                 span: to_span(&word[1..]).unwrap(),
-            }),
+            }
+            .into()),
             Err(hex_number::Error::TooLong { length }) => Err(Error::HexNumberTooLong {
                 length,
                 number: to_string(&word[1..]),
                 span: to_span(&word[1..]).unwrap(),
-            }),
+            }
+            .into()),
         }
         .map(|token| (token.spanning(to_span(word).unwrap()), Vec::new())),
         Spanned { node: '.', span } => match parse_identifier(span, &word[1..]) {
@@ -195,7 +195,7 @@ fn tokenize(word: &[Spanned<char>]) -> Result<(Spanned<Token>, Vec<Warning>), Er
                     Vec::new(),
                 ));
             }
-            Err(err) => Err(err),
+            Err(err) => Err(err.into()),
         },
         Spanned { node: ',', span } => match parse_identifier(span, &word[1..]) {
             Ok(name) => {
@@ -204,7 +204,7 @@ fn tokenize(word: &[Spanned<char>]) -> Result<(Spanned<Token>, Vec<Warning>), Er
                     Vec::new(),
                 ));
             }
-            Err(err) => Err(err),
+            Err(err) => Err(err.into()),
         },
         Spanned { node: ';', span } => match parse_identifier(span, &word[1..]) {
             Ok(name) => {
@@ -213,7 +213,7 @@ fn tokenize(word: &[Spanned<char>]) -> Result<(Spanned<Token>, Vec<Warning>), Er
                     Vec::new(),
                 ));
             }
-            Err(err) => Err(err),
+            Err(err) => Err(err.into()),
         },
         Spanned { node: ':', span } => match parse_identifier(span, &word[1..]) {
             Ok(name) => {
@@ -222,19 +222,19 @@ fn tokenize(word: &[Spanned<char>]) -> Result<(Spanned<Token>, Vec<Warning>), Er
                     Vec::new(),
                 ));
             }
-            Err(err) => Err(err),
+            Err(err) => Err(err.into()),
         },
         Spanned { node: '\'', span } => {
             let bytes: Vec<u8> = to_string(&word[1..]).bytes().collect();
             match bytes.len() {
-                0 => Err(Error::CharacterExpected { span }),
+                0 => Err(Error::CharacterExpected { span }.into()),
                 1 => Ok((
                     Token::RawChar(bytes[0]).spanning(Span::combine(&span, &word[1].span)),
                     Vec::new(),
                 )),
                 _ => {
                     let span = to_span(&word[1..]).unwrap();
-                    Err(Error::MoreThanOneByteFound { bytes, span })
+                    Err(Error::MoreThanOneByteFound { bytes, span }.into())
                 }
             }
         }
@@ -264,7 +264,7 @@ fn tokenize(word: &[Spanned<char>]) -> Result<(Spanned<Token>, Vec<Warning>), Er
             return Ok((
                 to_spanned_string(word)
                     .unwrap()
-                    .map(|s| (Token::MacroInvoke(s))),
+                    .map(|s| (Token::MacroExpand(s))),
                 Vec::new(),
             ));
         }
@@ -361,7 +361,7 @@ fn parse_identifier(rune_span: Span, symbols: &[Spanned<char>]) -> Result<Identi
 }
 
 /// `symbols` must not be empty.
-fn parse_instruction(symbols: &[Spanned<char>]) -> Option<(Instruction, Vec<Warning>)> {
+fn parse_instruction(symbols: &[Spanned<char>]) -> Option<(Instruction, Vec<crate::Warning>)> {
     if symbols.len() < 3 {
         return None;
     }
@@ -411,34 +411,43 @@ fn parse_instruction(symbols: &[Spanned<char>]) -> Option<(Instruction, Vec<Warn
         match ch {
             'k' => {
                 if let Some(other_span) = keep {
-                    warnings.push(Warning::InstructionModeDefinedMoreThanOnce {
-                        instruction_mode: 'k',
-                        instruction: to_string(&symbols[..3]),
-                        span: *span,
-                        other_span,
-                    });
+                    warnings.push(
+                        Warning::InstructionModeDefinedMoreThanOnce {
+                            instruction_mode: 'k',
+                            instruction: to_string(&symbols[..3]),
+                            span: *span,
+                            other_span,
+                        }
+                        .into(),
+                    );
                 }
                 keep = Some(*span);
             }
             'r' => {
                 if let Some(other_span) = r#return {
-                    warnings.push(Warning::InstructionModeDefinedMoreThanOnce {
-                        instruction_mode: 'r',
-                        instruction: to_string(&symbols[..3]),
-                        span: *span,
-                        other_span,
-                    });
+                    warnings.push(
+                        Warning::InstructionModeDefinedMoreThanOnce {
+                            instruction_mode: 'r',
+                            instruction: to_string(&symbols[..3]),
+                            span: *span,
+                            other_span,
+                        }
+                        .into(),
+                    );
                 }
                 r#return = Some(*span);
             }
             '2' => {
                 if let Some(other_span) = short {
-                    warnings.push(Warning::InstructionModeDefinedMoreThanOnce {
-                        instruction_mode: '2',
-                        instruction: to_string(&symbols[..3]),
-                        span: *span,
-                        other_span,
-                    });
+                    warnings.push(
+                        Warning::InstructionModeDefinedMoreThanOnce {
+                            instruction_mode: '2',
+                            instruction: to_string(&symbols[..3]),
+                            span: *span,
+                            other_span,
+                        }
+                        .into(),
+                    );
                 }
                 short = Some(*span);
             }

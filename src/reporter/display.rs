@@ -1,7 +1,7 @@
 use super::diagnostic::{Label, LabelStyle};
 use super::{FileDiagnostic, VoidDiagnostic};
 use crate::{argument_parser, reader, writer};
-use ruxnasm::{scanner, tokenizer};
+use ruxnasm::{scanner, tokenizer, walker};
 
 impl From<crate::InternalAssemblerError> for VoidDiagnostic {
     fn from(error: crate::InternalAssemblerError) -> Self {
@@ -68,6 +68,7 @@ impl From<ruxnasm::Error> for FileDiagnostic {
         match error {
             ruxnasm::Error::Scanner(error) => error.into(),
             ruxnasm::Error::Tokenizer(error) => error.into(),
+            ruxnasm::Error::Walker(error) => error.into(),
         }
     }
 }
@@ -188,10 +189,7 @@ impl From<tokenizer::Error> for FileDiagnostic {
                 .with_label(Label {
                     style: LabelStyle::Primary,
                     span,
-                    message: format!(
-                        "found bytes: {:x?}",
-                        bytes
-                    ),
+                    message: format!("found bytes: {:x?}", bytes),
                 }),
             tokenizer::Error::AmpersandAtTheStartOfLabel { span } => FileDiagnostic::error()
                 .with_message("label names can't have '&' as their first character")
@@ -293,6 +291,97 @@ impl From<tokenizer::Error> for FileDiagnostic {
                         message: String::new(),
                     })
             }
+        }
+    }
+}
+
+impl From<walker::Error> for FileDiagnostic {
+    fn from(error: walker::Error) -> Self {
+        match error {
+            walker::Error::MacroUndefined { name, span } => FileDiagnostic::error()
+                .with_message(format!("macro `{}` is not defined", name))
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            walker::Error::MacroDefinedMoreThanOnce {
+                name,
+                span,
+                other_span,
+            } => FileDiagnostic::error()
+                .with_message(format!("macro `{}` is defined multiple times", name))
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: format!("macro `{}` redefined here", name),
+                })
+                .with_label(Label {
+                    style: LabelStyle::Secondary,
+                    span: other_span,
+                    message: format!("previous definition of macro `{}` here", name),
+                }),
+            walker::Error::LabelDefinedMoreThanOnce {
+                name,
+                span,
+                other_span,
+            } => FileDiagnostic::error()
+                .with_message(format!("label `{}` is defined multiple times", name))
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: format!("label `{}` redefined here", name),
+                })
+                .with_label(Label {
+                    style: LabelStyle::Secondary,
+                    span: other_span,
+                    message: format!("previous definition of label `{}` here", name),
+                }),
+            walker::Error::OpeningBraceNotAfterMacroDefinition { span } => FileDiagnostic::error()
+                .with_message("found an opening brace that is not a part of a macro definition")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            walker::Error::NoMatchingOpeningBrace { span } => FileDiagnostic::error()
+                .with_message("no matching opening brace found for a closing brace")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            walker::Error::NoMatchingClosingBrace { span } => FileDiagnostic::error()
+                .with_message("no matching closing brace found for an opening brace")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            walker::Error::SublabelDefinedWithoutScope { name, span } => FileDiagnostic::error()
+                .with_message(format!(
+                    "sublabel `{}` was defined without a previously defined label",
+                    name
+                ))
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            walker::Error::NoMatchingOpeningBracket { span } => FileDiagnostic::error()
+                .with_message("no matching opening bracket found for a closing bracket")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            walker::Error::NoMatchingClosingBracket { span } => FileDiagnostic::error()
+                .with_message("no matching closing bracket found for an opening bracket")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
         }
     }
 }

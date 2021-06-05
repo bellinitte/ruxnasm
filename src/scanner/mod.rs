@@ -17,7 +17,9 @@ fn is_whitespace(ch: char) -> bool {
     WHITESPACES.contains(&ch)
 }
 
-pub fn scan<'a>(input_file_contents: &'a str) -> Result<(Vec<Word>, Vec<Warning>), Error> {
+pub fn scan<'a>(
+    input_file_contents: &'a str,
+) -> Result<(Vec<Word>, Vec<crate::Warning>), crate::Error> {
     let mut chars = input_file_contents.chars().peekable();
     let mut location = Location { offset: 0 };
     let mut words = Vec::new();
@@ -55,7 +57,8 @@ pub fn scan<'a>(input_file_contents: &'a str) -> Result<(Vec<Word>, Vec<Warning>
                             None => {
                                 return Err(Error::NoMatchingClosingParenthesis {
                                     span: Span::new(comment_start_location),
-                                })
+                                }
+                                .into())
                             }
                         }
                     }
@@ -63,7 +66,8 @@ pub fn scan<'a>(input_file_contents: &'a str) -> Result<(Vec<Word>, Vec<Warning>
                 Some(')') => {
                     return Err(Error::NoMatchingOpeningParenthesis {
                         span: Span::new(location),
-                    })
+                    }
+                    .into())
                 }
                 Some(ch) => break 'whitespace ch,
                 None => break 'chars,
@@ -82,7 +86,9 @@ pub fn scan<'a>(input_file_contents: &'a str) -> Result<(Vec<Word>, Vec<Warning>
                 if symbols.len() < 64 {
                     symbols.push(ch.spanning(Span::new(location)));
                 } else {
-                    ignored_start = Some(location);
+                    if ignored_start.is_none() {
+                        ignored_start = Some(location);
+                    }
                 }
                 location += 1;
             }
@@ -92,7 +98,9 @@ pub fn scan<'a>(input_file_contents: &'a str) -> Result<(Vec<Word>, Vec<Warning>
                 if symbols.len() < 64 {
                     symbols.push(ch.spanning(Span::new(location)));
                 } else {
-                    ignored_start = Some(location);
+                    if ignored_start.is_none() {
+                        ignored_start = Some(location);
+                    }
                 }
                 location += 1;
             }
@@ -101,12 +109,15 @@ pub fn scan<'a>(input_file_contents: &'a str) -> Result<(Vec<Word>, Vec<Warning>
         words.push(Word::new(&symbols));
 
         if let Some(ignored_location) = ignored_start {
-            warnings.push(Warning::TokenTrimmed {
-                span: Span {
-                    from: ignored_location,
-                    to: location,
-                },
-            });
+            warnings.push(
+                Warning::TokenTrimmed {
+                    span: Span {
+                        from: ignored_location,
+                        to: location,
+                    },
+                }
+                .into(),
+            );
         }
     }
 

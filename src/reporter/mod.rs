@@ -24,7 +24,7 @@ impl VoidReporter {
                 styles: with_blue(codespan_reporting::term::termcolor::Color::Cyan),
                 #[cfg(not(windows))]
                 styles: with_blue(codespan_reporting::term::termcolor::Color::Blue),
-                chars: codespan_reporting::term::Chars::default(),
+                chars: codespan_reporting::term::Chars::box_drawing(),
                 start_context_lines: 3,
                 end_context_lines: 1,
             },

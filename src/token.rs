@@ -9,7 +9,7 @@ pub enum Token {
     ClosingBrace,
     Instruction(Instruction),
     MacroDefine(String),
-    MacroInvoke(String),
+    MacroExpand(String),
     PadAbsolute(usize),
     PadRelative(usize),
     LabelDefine(String),

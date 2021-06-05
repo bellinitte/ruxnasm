@@ -8,5 +8,8 @@ edition = "2018"
 name = "ruxnasm"
 required-features = ["codespan-reporting"]
 
+[features]
+default = ["codespan-reporting"]
+
 [dependencies]
 codespan-reporting = { version = "0.11.1", optional = true }
