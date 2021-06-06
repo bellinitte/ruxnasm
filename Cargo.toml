@@ -1,6 +1,6 @@
 [package]
 name = "ruxnasm"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["Karol Belina <karolbelina@gmail.com>"]
 edition = "2018"
 description = "Alternative Uxntal assembler focused on error reporting"
@@ -9,14 +9,17 @@ repository = "https://github.com/karolbelina/ruxnasm"
 license = "MIT"
 keywords = ["assembler", "uxn", "uxntal"]
 categories = ["command-line-utilities", "compilers"]
-exclude = [".github", ".vscode"]
+exclude = [".github", ".vscode", "docs"]
 
 [[bin]]
 name = "ruxnasm"
-required-features = ["codespan-reporting"]
+required-features = ["bin"]
 
 [features]
-default = ["codespan-reporting"]
+default = ["bin"]
+# Feature required for the Ruxnasm binary. Should be disabled when depending on
+# Ruxnasm as a library.
+bin = ["codespan-reporting"]
 
 [dependencies]
 codespan-reporting = { version = "0.11.1", optional = true }
