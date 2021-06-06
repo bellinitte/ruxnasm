@@ -15,14 +15,11 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         include:
         - os: ubuntu-latest
-          TARGET: x86_64-unknown-linux-gnu
-          EXECUTABLE_NAME: ruxnasm
+          ARCHIVE_NAME: ruxnasm-x86_64-unknown-linux-gnu.tar.gz
         - os: windows-latest
-          TARGET: x86_64-pc-windows-msvc
-          EXECUTABLE_NAME: ruxnasm.exe
+          ARCHIVE_NAME: ruxnasm-x86_64-pc-windows-msvc.zip
         - os: macos-latest
-          TARGET: x86_64-apple-darwin
-          EXECUTABLE_NAME: ruxnasm
+          ARCHIVE_NAME: ruxnasm-x86_64-apple-darwin-tar.gz
 
     steps:
     - name: Checkout sources
@@ -31,11 +28,17 @@ jobs:
       uses: actions-rs/toolchain@v1
     - name: Build Ruxnasm
       run: cargo build --release
+    - name: Archive Ruxnasm
+      if: matrix.os == 'windows-latest'
+      run: Compress-Archive -CompressionLevel Optimal -Force -Path target/release/ruxnasm.exe -DestinationPath ${{ matrix.ARCHIVE_NAME }}
+    - name: Archive Ruxnasm
+      if: matrix.os != 'windows-latest'
+      run: tar -C target/release -czf ${{ matrix.ARCHIVE_NAME }} ruxnasm
     - name: Upload artifact
       uses: actions/upload-artifact@v2
       with:
-        name: ruxnasm-${{ matrix.TARGET }}
-        path: target/release/${{ matrix.EXECUTABLE_NAME }}
+        name: ${{ matrix.ARCHIVE_NAME }}
+        path: ${{ matrix.ARCHIVE_NAME }}
 
   test:
     runs-on: ubuntu-latest
