@@ -1,5 +1,7 @@
 # ruxnasm
 
+<img align="right" src=docs/promo.svg height="300px">
+
 [![CI](https://github.com/karolbelina/ruxnasm/actions/workflows/ci.yml/badge.svg)](https://github.com/karolbelina/ruxnasm/actions/workflows/ci.yml)
 [![crates.io](https://img.shields.io/crates/v/ruxnasm.svg)](https://crates.io/crates/ruxnasm)
 [![docs.rs](https://docs.rs/ruxnasm/badge.svg)](https://docs.rs/ruxnasm)
@@ -12,7 +14,7 @@ Ruxnasm is an assembler for [Uxntal][uxntal], a programming language for the [Ux
 
 ```console
 cargo run -- examples/helloworld.tal helloworld.rom
-uxnemu helloworld.rom
+uxncli helloworld.rom
 ```
 
 ## Compatibility with Uxnasm
