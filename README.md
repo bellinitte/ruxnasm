@@ -8,7 +8,7 @@
 
 :construction: Not in a useful state yet :construction:
 
-Ruxnasm is an assembler for [Uxntal][uxntal], a programming language for the [Uxn][uxn] stack-machine by [Hundred Rabbits](https://github.com/hundredrabbits). Ruxnasm strives to be an alternative to [Uxnasm][uxnasm], featuring more user-friendly error reporting, warnings, and helpful hints, reminiscent of those seen in modern compilers for languages such as Rust or Elm.
+Ruxnasm is an assembler for [Uxntal][uxntal] &mdash; a programming language for the [Uxn][uxn] stack-machine by [Hundred Rabbits](https://github.com/hundredrabbits). Ruxnasm strives to be an alternative to [Uxnasm][uxnasm], featuring more user-friendly error reporting, warnings, and helpful hints, reminiscent of those seen in modern compilers for languages such as Rust or Elm.
 
 ## Quick start
 
