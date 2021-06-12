@@ -37,6 +37,7 @@ This file lists all known differences between Uxnasm and Ruxnasm. These features
 | 23 | After a raw character rune, ignores all bytes after the first one. | More than one character or a multibyte Unicode character after a raw character rune results in error E0027. | / |
 | 24 | Using the `.&label` syntax without a previously defined label is valid and generates a label out of garbage memory. | Using the `.&label` syntax without a previously defined label results in error E0030. | / |
 | 25 | Sublabel paths can have more than one slash. | Sublabel paths with more than one slash are invalid and result in error E0014. | / |
+
 ## Quirks
 
 | N | Uxnasm | Ruxnasm | V[*](#validity-symbols) |
@@ -45,7 +46,7 @@ This file lists all known differences between Uxnasm and Ruxnasm. These features
 | 27 | Tokens are split by whitespace. See [Delimiters](#delimiters) for the details and implications. | Splits the tokens not only by whitespace but by the delimiters as well. See [Delimiters](#delimiters) for the details. | - |
 | 28 | Opening brace after a macro definition can be omitted. | A macro definition not directly followed by an opening brace is a valid, but empty macro. | - |
 | 29 | Label definitions, sublabel definitions, macro definitions, and absolute pads are not allowed in macros. | Definitions and absolute pads are valid in macros. See [Definitions and absolute pads in macros](#definitions-and-absolute-pads-in-macros) for the details. | \ |
-| 30 | Comments and brackets are not allowed in macros. | Comments and brackets are valid in macros: <ul><li>Any comment opened in a macro must be closed within that macro, or else the closing brace won't be parsed.</li><li>Bracket matching and nesting behaves exacly as if the macro would be expanded inline, so the brackets can be opened within a macro and closed outside of it or vice versa.</li></ul> | \ |
+| 30 | Comments and brackets are not allowed in macros. | Comments and brackets are valid in macros: <ul><li>Any comment opened in a macro must be closed within that macro, or else the closing brace won't be parsed.</li><li>Bracket matching and nesting behaves exactly as if the macro would be expanded inline, so the brackets can be opened within a macro and closed outside of it or vice versa.</li></ul> | \ |
 | 31 | Attempting to define a label that is a valid hexadecimal number or a valid instruction results in "Label name is hex number" and "Label name is invalid" errors, respectively. | Labels can be valid hexadecimal numbers or instructions. Labels must be preceded by an address rune &mdash; they don't clash with numbers or instructions in any way. | \ |
 | 32 | Labels and sublabels share the same namespace and the names can have at most 64 characters. Sublabel names are cut off if the sum of the lengths of (1) the scope name, (2) the slash character, and (3) the sublabel name is greater than 64 characters. | Labels and sublabels have separate namespaces and the labels are defined as a pair consisting of the scope name and the sublabel name with 64 characters each. | - |
 
