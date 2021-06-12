@@ -306,6 +306,12 @@ impl From<ruxnasm::Error> for FileDiagnostic {
                     span,
                     message: String::new(),
                 }),
+            ruxnasm::Error::MacroError { original_error, span } => FileDiagnostic::from(*original_error)
+                .with_label(Label {
+                    style: LabelStyle::Secondary,
+                    span,
+                    message: "in this macro invocation".to_owned(),
+                })
         }
     }
 }

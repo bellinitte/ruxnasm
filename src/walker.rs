@@ -1,6 +1,8 @@
-use crate::anomalies::Error;
 use crate::{tokenizer::Word, Span, Spanned, Token};
+use crate::{Error, Warning};
 use std::collections::HashMap;
+use std::iter::Peekable;
+use std::slice::Iter;
 
 #[derive(Default)]
 struct Environment {
@@ -36,14 +38,14 @@ pub(crate) fn walk(words: &[Word]) -> (Vec<crate::Error>, Vec<crate::Warning>) {
         })
     }
 
-    println!("macros: {:?}\n", environment.macro_definitions.keys());
-    println!("labels: {:?}\n", environment.label_definitions.keys());
-    println!("sublabels: {:?}\n", environment.sublabel_definitions.keys());
-    println!("address: {:?}\n", environment.address);
+    // println!("macros: {:?}\n", environment.macro_definitions.keys());
+    // println!("labels: {:?}\n", environment.label_definitions.keys());
+    // println!("sublabels: {:?}\n", environment.sublabel_definitions.keys());
+    // println!("address: {:?}\n", environment.address);
 
-    for (macro_name, (macro_items, _)) in environment.macro_definitions.iter() {
-        println!("macro {}: {:?}", macro_name, macro_items);
-    }
+    // for (macro_name, (macro_items, _)) in environment.macro_definitions.iter() {
+    //     println!("macro {}: {:?}", macro_name, macro_items);
+    // }
 
     (errors, warnings)
 }
@@ -52,241 +54,270 @@ fn walk_rec(
     words: &[Word],
     environment: &mut Environment,
 ) -> (Vec<crate::Error>, Vec<crate::Warning>) {
-    let mut errors = Vec::new();
-    let mut warnings = Vec::new();
+    let mut errors: Vec<Error> = Vec::new();
+    let mut warnings: Vec<Warning> = Vec::new();
 
     let mut words = words.iter().peekable();
 
     loop {
-        if let Some(word) = words.next() {
-            match word.get_token() {
-                Ok((token, new_warnings)) => {
-                    warnings.extend(new_warnings);
-                    match token {
-                        Spanned {
-                            node: Token::OpeningBracket,
-                            span,
-                        } => {
-                            environment.opened_brackets.push(span);
-                        }
-                        Spanned {
-                            node: Token::ClosingBracket,
-                            span,
-                        } => {
-                            if environment.opened_brackets.pop().is_none() {
-                                errors.push(Error::NoMatchingOpeningBracket { span: span.into() });
-                            }
-                        }
-                        Spanned {
-                            node: Token::OpeningBrace,
-                            span,
-                        } => {
-                            environment.opened_braces.push(span);
-                            errors.push(Error::OpeningBraceNotAfterMacroDefinition {
-                                span: span.into(),
+        match words.next() {
+            Some(Word::Fine {
+                token,
+                warnings: new_warnings,
+            }) => {
+                warnings.extend(new_warnings.clone());
+                match token {
+                    Spanned {
+                        node: Token::OpeningBracket,
+                        span,
+                    } => {
+                        environment.opened_brackets.push(*span);
+                    }
+                    Spanned {
+                        node: Token::ClosingBracket,
+                        span,
+                    } => {
+                        if environment.opened_brackets.pop().is_none() {
+                            errors.push(Error::NoMatchingOpeningBracket {
+                                span: (*span).into(),
                             });
                         }
-                        Spanned {
-                            node: Token::ClosingBrace,
-                            span,
-                        } => {
-                            if environment.opened_braces.pop().is_none() {
-                                errors.push(Error::NoMatchingOpeningBrace { span: span.into() });
-                            }
-                        }
-                        Spanned {
-                            node: Token::Instruction(_),
-                            ..
-                        } => environment.address += 2,
-                        Spanned {
-                            node: Token::MacroDefine(name),
-                            span,
-                        } => {
-                            let mut items: Vec<Word> = Vec::new();
-                            if let Some(word) = words.peek() {
-                                match word.get_token() {
-                                    Ok((
-                                        Spanned {
-                                            node: Token::OpeningBrace,
-                                            span: opening_brace_span,
-                                        },
-                                        new_warnings,
-                                    )) => {
-                                        let brace_level = environment.opened_braces.len();
-                                        environment.opened_braces.push(opening_brace_span);
-                                        warnings.extend(new_warnings);
-                                        words.next();
-                                        'macro_define: loop {
-                                            if let Some(word) = words.next() {
-                                                match word.get_token() {
-                                                    Ok((
-                                                        Spanned {
-                                                            node: Token::OpeningBrace,
-                                                            span,
-                                                        },
-                                                        new_warnings,
-                                                    )) => {
-                                                        environment.opened_braces.push(span);
-                                                        warnings.extend(new_warnings);
-                                                        items.push(word.clone());
-                                                    }
-                                                    Ok((
-                                                        Spanned {
-                                                            node: Token::ClosingBrace,
-                                                            ..
-                                                        },
-                                                        new_warnings,
-                                                    )) => {
-                                                        environment.opened_braces.pop().unwrap();
-                                                        warnings.extend(new_warnings);
-                                                        if environment.opened_braces.len()
-                                                            == brace_level
-                                                        {
-                                                            break 'macro_define;
-                                                        } else {
-                                                            items.push(word.clone());
-                                                        }
-                                                    }
-                                                    _ => {
-                                                        items.push(word.clone());
-                                                    }
-                                                }
-                                            } else {
-                                                break 'macro_define;
-                                            }
-                                        }
-                                    }
-                                    Ok(_) => (),
-                                    Err((new_errors, new_warnings)) => {
-                                        errors.extend(new_errors);
-                                        warnings.extend(new_warnings);
-                                    }
-                                }
-                            }
-                            if let Some((_, other_span)) = environment
-                                .macro_definitions
-                                .insert(name.clone(), (items, span))
-                            {
-                                errors.push(Error::MacroDefinedMoreThanOnce {
-                                    name: name.clone(),
-                                    span: span.into(),
-                                    other_span: other_span.into(),
-                                });
-                            }
-                            environment.macro_references.insert(name, 0);
-                        }
-                        Spanned {
-                            node: Token::MacroExpand(name),
-                            span,
-                        } => match environment.macro_definitions.get(&name).cloned() {
-                            Some((items, _)) => {
-                                let (new_errors, new_warnings) = walk_rec(&items, environment);
-                                errors.extend(new_errors);
-                                warnings.extend(new_warnings);
-                            }
-                            None => errors.push(Error::MacroUndefined {
-                                name,
-                                span: span.into(),
-                            }),
-                        },
-                        Spanned {
-                            node: Token::PadAbsolute(value),
-                            ..
-                        } => environment.address = value as u16,
-                        Spanned {
-                            node: Token::PadRelative(value),
-                            ..
-                        } => environment.address += value as u16,
-                        Spanned {
-                            node: Token::LabelDefine(name),
-                            span,
-                        } => {
-                            if let Some((_, other_span)) = environment
-                                .label_definitions
-                                .insert(name.clone(), (environment.address, span))
-                            {
-                                errors.push(Error::LabelDefinedMoreThanOnce {
-                                    name: name.clone(),
-                                    span: span.into(),
-                                    other_span: other_span.into(),
-                                });
-                            }
-                            environment.scope = Some(name);
-                        }
-                        Spanned {
-                            node: Token::SublabelDefine(name),
-                            span,
-                        } => match &environment.scope {
-                            Some(scope_name) => {
-                                if let Some((_, other_span)) =
-                                    environment.sublabel_definitions.insert(
-                                        (scope_name.clone(), name.clone()),
-                                        (environment.address, span),
-                                    )
-                                {
-                                    errors.push(Error::LabelDefinedMoreThanOnce {
-                                        name,
-                                        span: span.into(),
-                                        other_span: other_span.into(),
-                                    });
-                                }
-                            }
-                            None => errors.push(Error::SublabelDefinedWithoutScope {
-                                name,
-                                span: span.into(),
-                            }),
-                        },
-                        Spanned {
-                            node: Token::LiteralZeroPageAddress(_),
-                            ..
-                        } => environment.address += 2,
-                        Spanned {
-                            node: Token::LiteralRelativeAddress(_),
-                            ..
-                        } => environment.address += 2,
-                        Spanned {
-                            node: Token::LiteralAbsoluteAddress(_),
-                            ..
-                        } => environment.address += 3,
-                        Spanned {
-                            node: Token::RawAddress(_),
-                            ..
-                        } => environment.address += 2,
-                        Spanned {
-                            node: Token::LiteralHexByte(_),
-                            ..
-                        } => environment.address += 2,
-                        Spanned {
-                            node: Token::LiteralHexShort(_),
-                            ..
-                        } => environment.address += 3,
-                        Spanned {
-                            node: Token::RawHexByte(_),
-                            ..
-                        } => environment.address += 1,
-                        Spanned {
-                            node: Token::RawHexShort(_),
-                            ..
-                        } => environment.address += 2,
-                        Spanned {
-                            node: Token::RawChar(_),
-                            ..
-                        } => environment.address += 1,
-                        Spanned {
-                            node: Token::RawWord(word),
-                            ..
-                        } => environment.address += word.bytes().len() as u16,
                     }
-                }
-                Err((new_errors, new_warnings)) => {
-                    errors.extend(new_errors);
-                    warnings.extend(new_warnings);
+                    Spanned {
+                        node: Token::OpeningBrace,
+                        span,
+                    } => {
+                        environment.opened_braces.push(*span);
+                        errors.push(Error::OpeningBraceNotAfterMacroDefinition {
+                            span: (*span).into(),
+                        });
+                    }
+                    Spanned {
+                        node: Token::ClosingBrace,
+                        span,
+                    } => {
+                        if environment.opened_braces.pop().is_none() {
+                            errors.push(Error::NoMatchingOpeningBrace {
+                                span: (*span).into(),
+                            });
+                        }
+                    }
+                    Spanned {
+                        node: Token::Instruction(_),
+                        ..
+                    } => environment.address += 1,
+                    Spanned {
+                        node: Token::MacroDefine(name),
+                        span,
+                    } => {
+                        walk_macro_definition(
+                            name,
+                            span,
+                            &mut words,
+                            environment,
+                            &mut errors,
+                            &mut warnings,
+                        );
+                    }
+                    Spanned {
+                        node: Token::MacroInvoke(name),
+                        span,
+                    } => match environment.macro_definitions.get(name).cloned() {
+                        Some((items, _)) => {
+                            let (new_errors, new_warnings) = walk_rec(&items, environment);
+                            let new_errors = new_errors.into_iter().map(|error| Error::MacroError {
+                                original_error: Box::new(error),
+                                span: (*span).into(),
+                            }).collect::<Vec<Error>>();
+                            errors.extend(new_errors);
+                            warnings.extend(new_warnings);
+                        }
+                        None => errors.push(Error::MacroUndefined {
+                            name: name.to_owned(),
+                            span: (*span).into(),
+                        }),
+                    },
+                    Spanned {
+                        node: Token::PadAbsolute(value),
+                        ..
+                    } => environment.address = *value as u16,
+                    Spanned {
+                        node: Token::PadRelative(value),
+                        ..
+                    } => environment.address += *value as u16,
+                    Spanned {
+                        node: Token::LabelDefine(name),
+                        span,
+                    } => {
+                        if let Some((_, other_span)) = environment
+                            .label_definitions
+                            .insert(name.clone(), (environment.address, *span))
+                        {
+                            errors.push(Error::LabelDefinedMoreThanOnce {
+                                name: name.clone(),
+                                span: (*span).into(),
+                                other_span: other_span.into(),
+                            });
+                        }
+                        environment.scope = Some(name.to_owned());
+                    }
+                    Spanned {
+                        node: Token::SublabelDefine(name),
+                        span,
+                    } => match &environment.scope {
+                        Some(scope_name) => {
+                            if let Some((_, other_span)) = environment.sublabel_definitions.insert(
+                                (scope_name.clone(), name.clone()),
+                                (environment.address, *span),
+                            ) {
+                                errors.push(Error::LabelDefinedMoreThanOnce {
+                                    name: name.to_owned(),
+                                    span: (*span).into(),
+                                    other_span: other_span.into(),
+                                });
+                            }
+                        }
+                        None => errors.push(Error::SublabelDefinedWithoutScope {
+                            name: name.to_owned(),
+                            span: (*span).into(),
+                        }),
+                    },
+                    Spanned {
+                        node: Token::LiteralZeroPageAddress(_),
+                        ..
+                    } => environment.address += 2,
+                    Spanned {
+                        node: Token::LiteralRelativeAddress(_),
+                        ..
+                    } => environment.address += 2,
+                    Spanned {
+                        node: Token::LiteralAbsoluteAddress(_),
+                        ..
+                    } => environment.address += 3,
+                    Spanned {
+                        node: Token::RawAddress(_),
+                        ..
+                    } => environment.address += 2,
+                    Spanned {
+                        node: Token::LiteralHexByte(_),
+                        ..
+                    } => environment.address += 2,
+                    Spanned {
+                        node: Token::LiteralHexShort(_),
+                        ..
+                    } => environment.address += 3,
+                    Spanned {
+                        node: Token::RawHexByte(_),
+                        ..
+                    } => environment.address += 1,
+                    Spanned {
+                        node: Token::RawHexShort(_),
+                        ..
+                    } => environment.address += 2,
+                    Spanned {
+                        node: Token::RawChar(_),
+                        ..
+                    } => environment.address += 1,
+                    Spanned {
+                        node: Token::RawWord(word),
+                        ..
+                    } => environment.address += word.bytes().len() as u16,
                 }
             }
-        } else {
-            break;
+            Some(Word::Faulty {
+                errors: new_errors,
+                warnings: new_warnings,
+            }) => {
+                errors.extend(new_errors.iter().cloned());
+                warnings.extend(new_warnings.iter().cloned());
+            }
+            None => break,
         }
     }
 
     (errors, warnings)
+}
+
+fn walk_macro_definition(
+    name: &String,
+    span: &Span,
+    words: &mut Peekable<Iter<Word>>,
+    environment: &mut Environment,
+    errors: &mut Vec<Error>,
+    warnings: &mut Vec<Warning>,
+) {
+    let mut items: Vec<Word> = Vec::new();
+
+    match words.peek() {
+        Some(Word::Fine {
+            token:
+                Spanned {
+                    node: Token::OpeningBrace,
+                    span: opening_brace_span,
+                },
+            warnings: new_warnings,
+        }) => {
+            let brace_level = environment.opened_braces.len();
+            environment.opened_braces.push(*opening_brace_span);
+            warnings.extend(new_warnings.iter().cloned());
+            words.next();
+            'macro_define: loop {
+                let option_word = words.next();
+                match option_word {
+                    Some(Word::Fine {
+                        token:
+                            Spanned {
+                                node: Token::OpeningBrace,
+                                span,
+                            },
+                        warnings: new_warnings,
+                    }) => {
+                        environment.opened_braces.push(*span);
+                        warnings.extend(new_warnings.iter().cloned());
+                        items.push(option_word.unwrap().to_owned());
+                    }
+                    Some(Word::Fine {
+                        token:
+                            Spanned {
+                                node: Token::ClosingBrace,
+                                ..
+                            },
+                        warnings: new_warnings,
+                    }) => {
+                        environment.opened_braces.pop().unwrap();
+                        warnings.extend(new_warnings.iter().cloned());
+                        if environment.opened_braces.len() == brace_level {
+                            break 'macro_define;
+                        } else {
+                            items.push(option_word.unwrap().to_owned());
+                        }
+                    }
+                    Some(word) => {
+                        items.push(word.clone());
+                    }
+                    None => break 'macro_define,
+                }
+            }
+        }
+        Some(Word::Faulty {
+            errors: new_errors,
+            warnings: new_warnings,
+        }) => {
+            errors.extend(new_errors.to_owned());
+            warnings.extend(new_warnings.to_owned());
+        }
+        _ => (),
+    }
+
+    if let Some((_, other_span)) = environment
+        .macro_definitions
+        .insert(name.clone(), (items, span.to_owned()))
+    {
+        errors.push(Error::MacroDefinedMoreThanOnce {
+            name: name.clone(),
+            span: (*span).into(),
+            other_span: other_span.into(),
+        });
+    }
+    environment.macro_references.insert(name.to_owned(), 0);
 }

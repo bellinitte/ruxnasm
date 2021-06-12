@@ -8,7 +8,7 @@ pub(crate) enum Token {
     ClosingBrace,
     Instruction(Instruction),
     MacroDefine(String),
-    MacroExpand(String),
+    MacroInvoke(String),
     PadAbsolute(usize),
     PadRelative(usize),
     LabelDefine(String),

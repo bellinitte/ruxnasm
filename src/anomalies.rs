@@ -394,4 +394,8 @@ pub enum Error {
         /// Span of the opening bracket with no matching closing bracket.
         span: Range<usize>,
     },
+    MacroError {
+        original_error: Box<Error>,
+        span: Range<usize>,
+    },
 }

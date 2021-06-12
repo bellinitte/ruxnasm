@@ -2,12 +2,11 @@ use super::{Identifier, Token};
 use super::{Span, Spanned, Spanning};
 use crate::anomalies::{Error, Warning};
 use crate::{Instruction, InstructionKind};
-use std::fmt;
 
 mod hex_number;
 
-#[derive(Clone)]
-enum Evaluated {
+#[derive(Debug, Clone)]
+pub(crate) enum Word {
     Fine {
         token: Spanned<Token>,
         warnings: Vec<Warning>,
@@ -16,20 +15,6 @@ enum Evaluated {
         errors: Vec<Error>,
         warnings: Vec<Warning>,
     },
-}
-
-impl fmt::Debug for Evaluated {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Fine { token, .. } => write!(f, "Fine {{ token: {:?} }}", token.node),
-            Self::Faulty { .. } => write!(f, "Faulty"),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub(crate) struct Word {
-    evaluated: Evaluated,
 }
 
 impl Word {
@@ -41,23 +26,12 @@ impl Word {
             WHITESPACES.iter().all(|ch| !chars.contains(ch))
         });
 
-        let evaluated = match tokenize(symbols) {
-            Ok((token, warnings)) => Evaluated::Fine { token, warnings },
-            Err(error) => Evaluated::Faulty {
+        match tokenize(symbols) {
+            Ok((token, warnings)) => Self::Fine { token, warnings },
+            Err(error) => Self::Faulty {
                 errors: vec![error],
                 warnings: Vec::new(),
             },
-        };
-
-        Self { evaluated }
-    }
-
-    pub(crate) fn get_token(
-        &self,
-    ) -> Result<(Spanned<Token>, Vec<Warning>), (Vec<Error>, Vec<Warning>)> {
-        match &self.evaluated {
-            Evaluated::Fine { token, warnings } => Ok((token.clone(), warnings.clone())),
-            Evaluated::Faulty { errors, warnings } => Err((errors.clone(), warnings.clone())),
         }
     }
 }
@@ -256,7 +230,7 @@ fn tokenize(word: &[Spanned<char>]) -> Result<(Spanned<Token>, Vec<Warning>), Er
             return Ok((
                 to_spanned_string(word)
                     .unwrap()
-                    .map(|s| (Token::MacroExpand(s))),
+                    .map(|s| (Token::MacroInvoke(s))),
                 Vec::new(),
             ));
         }

@@ -26,7 +26,6 @@ pub(crate) fn scan<'a>(
     'chars: loop {
         let ch = 'whitespace: loop {
             match chars.next() {
-                // TODO: include other whitespace
                 Some(ch) if is_whitespace(ch) => {
                     location += 1;
                     continue;
