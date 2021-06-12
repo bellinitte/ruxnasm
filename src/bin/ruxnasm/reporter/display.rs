@@ -366,12 +366,10 @@ impl From<ruxnasm::Error> for FileDiagnostic {
                 identifier,
                 span,
                 other_span,
-                debug
             } => FileDiagnostic::error()
                 .with_message(format!(
                     "address of label {} is too far to be a relative address (distance {})",
-                    identifier,
-                    distance
+                    identifier, distance
                 ))
                 .with_label(Label {
                     style: LabelStyle::Primary,
@@ -382,8 +380,7 @@ impl From<ruxnasm::Error> for FileDiagnostic {
                     style: LabelStyle::Secondary,
                     span: other_span,
                     message: "label definition".to_owned(),
-                })
-                .with_note(debug),
+                }),
             ruxnasm::Error::BytesInZerothPage { spans } => {
                 let mut diagnostic = FileDiagnostic::error()
                     .with_message(format!("found bytes in the zeroth page",))

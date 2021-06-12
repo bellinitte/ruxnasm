@@ -428,7 +428,6 @@ pub enum Error {
         identifier: String,
         span: Range<usize>,
         other_span: Range<usize>,
-        debug: String,
     },
     BytesInZerothPage {
         spans: Vec<Range<usize>>,

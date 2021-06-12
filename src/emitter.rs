@@ -168,7 +168,6 @@ pub(crate) fn emit(
                             identifier: scoped_identifier.to_string(),
                             span: span.into(),
                             other_span: other_span.into(),
-                            debug: format!("address: {}, pointer: {}, a - p - 3 = {}", address, binary.get_pointer(), offset),
                         });
                         binary.increment_pointer(2);
                     } else {
