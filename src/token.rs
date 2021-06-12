@@ -17,10 +17,19 @@ pub(crate) enum Statement {
     RawWord(String),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum ScopedIdentifier {
     Label(String),
     Sublabel(String, String),
+}
+
+impl ScopedIdentifier {
+    pub fn is_captital(&self) -> bool {
+        match self {
+            Self::Label(name) => name.chars().next().unwrap().is_uppercase(),
+            Self::Sublabel(name, _) => name.chars().next().unwrap().is_uppercase(),
+        }
+    }
 }
 
 impl ToString for ScopedIdentifier {

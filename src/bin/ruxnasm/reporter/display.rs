@@ -333,20 +333,6 @@ impl From<ruxnasm::Error> for FileDiagnostic {
                     span,
                     message: String::new(),
                 }),
-            ruxnasm::Error::SublabelUndefined {
-                label_name,
-                sublabel_name,
-                span,
-            } => FileDiagnostic::error()
-                .with_message(format!(
-                    "sublabel `{}` in scope `{}` is not defined",
-                    sublabel_name, label_name
-                ))
-                .with_label(Label {
-                    style: LabelStyle::Primary,
-                    span,
-                    message: String::new(),
-                }),
             ruxnasm::Error::AddressNotZeroPage {
                 address,
                 identifier,
@@ -433,6 +419,20 @@ impl From<ruxnasm::Warning> for FileDiagnostic {
                     style: LabelStyle::Secondary,
                     span: other_span,
                     message: format!("previous definition of mode `{}` here", instruction_mode),
+                }),
+            ruxnasm::Warning::MacroUnused { name, span } => FileDiagnostic::warning()
+                .with_message(format!("unused macro `{}`", name))
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            ruxnasm::Warning::LabelUnused { name, span } => FileDiagnostic::warning()
+                .with_message(format!("unused label `{}`", name))
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
                 }),
         }
     }

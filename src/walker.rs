@@ -5,6 +5,7 @@ use crate::token::Statement;
 use crate::{tokenizer::Word, Span, Spanned, Token};
 use crate::{Error, Warning};
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::iter::Peekable;
 use std::vec::IntoIter;
 
@@ -15,14 +16,12 @@ struct Environment {
     opened_braces: Vec<Span>,
     scope: Option<String>,
     macro_definitions: HashMap<String, (Vec<Word>, Span)>,
-    macro_references: HashMap<String, usize>,
-    label_definitions: HashMap<String, (u16, Span)>,
-    sublabel_definitions: HashMap<(String, String), (u16, Span)>,
+    unused_macros: HashSet<String>,
+    label_definitions: HashMap<ScopedIdentifier, (u16, Span)>,
 }
 
 pub(crate) struct Definitions {
-    pub labels: HashMap<String, (u16, Span)>,
-    pub sublabels: HashMap<(String, String), (u16, Span)>,
+    pub labels: HashMap<ScopedIdentifier, (u16, Span)>,
 }
 
 pub(crate) fn walk(
@@ -57,12 +56,19 @@ pub(crate) fn walk(
         })
     }
 
+    for unused_macro_name in environment.unused_macros {
+        let (_, span) = environment.macro_definitions[&unused_macro_name];
+        warnings.push(Warning::MacroUnused {
+            name: unused_macro_name,
+            span: span.into(),
+        });
+    }
+
     if errors.is_empty() {
         Ok((
             statements,
             Definitions {
                 labels: environment.label_definitions,
-                sublabels: environment.sublabel_definitions,
             },
             warnings,
         ))
@@ -143,21 +149,24 @@ fn walk_rec(
                         node: Token::MacroInvoke(name),
                         span,
                     } => match environment.macro_definitions.get(&name).cloned() {
-                        Some((items, _)) => match walk_rec(items, environment) {
-                            Ok((new_statemtents, new_warnings)) => {
-                                statements.extend(new_statemtents);
-                                warnings.extend(new_warnings);
+                        Some((items, _)) => {
+                            environment.unused_macros.remove(&name);
+                            match walk_rec(items, environment) {
+                                Ok((new_statemtents, new_warnings)) => {
+                                    statements.extend(new_statemtents);
+                                    warnings.extend(new_warnings);
+                                }
+                                Err((new_errors, new_warnings)) => {
+                                    errors.extend(new_errors.into_iter().map(|error| {
+                                        Error::MacroError {
+                                            original_error: Box::new(error),
+                                            span: span.into(),
+                                        }
+                                    }));
+                                    warnings.extend(new_warnings);
+                                }
                             }
-                            Err((new_errors, new_warnings)) => {
-                                errors.extend(new_errors.into_iter().map(|error| {
-                                    Error::MacroError {
-                                        original_error: Box::new(error),
-                                        span: span.into(),
-                                    }
-                                }));
-                                warnings.extend(new_warnings);
-                            }
-                        },
+                        }
                         None => errors.push(Error::MacroUndefined {
                             name: name,
                             span: span.into(),
@@ -181,10 +190,10 @@ fn walk_rec(
                         node: Token::LabelDefine(name),
                         span,
                     } => {
-                        if let Some((_, other_span)) = environment
-                            .label_definitions
-                            .insert(name.clone(), (environment.address, span))
-                        {
+                        if let Some((_, other_span)) = environment.label_definitions.insert(
+                            ScopedIdentifier::Label(name.clone()),
+                            (environment.address, span),
+                        ) {
                             errors.push(Error::LabelDefinedMoreThanOnce {
                                 name: name.clone(),
                                 span: span.into(),
@@ -198,8 +207,8 @@ fn walk_rec(
                         span,
                     } => match &environment.scope {
                         Some(scope_name) => {
-                            if let Some((_, other_span)) = environment.sublabel_definitions.insert(
-                                (scope_name.to_owned(), name.clone()),
+                            if let Some((_, other_span)) = environment.label_definitions.insert(
+                                ScopedIdentifier::Sublabel(scope_name.to_owned(), name.clone()),
                                 (environment.address, span),
                             ) {
                                 errors.push(Error::LabelDefinedMoreThanOnce {
@@ -397,7 +406,7 @@ fn walk_macro_definition(
             other_span: other_span.into(),
         });
     }
-    environment.macro_references.insert(name, 0);
+    environment.unused_macros.insert(name);
 
     words
 }

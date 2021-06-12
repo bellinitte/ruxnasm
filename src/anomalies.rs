@@ -32,6 +32,15 @@ pub enum Warning {
         /// Span of the instruction mode character defined for the first time.
         other_span: Range<usize>,
     },
+    MacroUnused {
+        name: String,
+        span: Range<usize>,
+    },
+    // TODO: if this is intentional, prefix it with an underscore
+    LabelUnused {
+        name: String,
+        span: Range<usize>,
+    },
 }
 
 /// Enum representing every error that can be reported from Ruxnasm.
@@ -407,14 +416,6 @@ pub enum Error {
     LabelUndefined {
         /// Name of the label.
         name: String,
-        /// Span of the label reference.
-        span: Range<usize>,
-    },
-    SublabelUndefined {
-        /// Name of the label.
-        label_name: String,
-        /// Name of the sublabel.
-        sublabel_name: String,
         /// Span of the label reference.
         span: Range<usize>,
     },

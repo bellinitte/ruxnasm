@@ -74,7 +74,9 @@ pub(crate) fn emit(
     definitions: Definitions,
 ) -> Result<(Vec<u8>, Vec<Warning>), (Vec<Error>, Vec<Warning>)> {
     let mut errors: Vec<Error> = Vec::new();
-    let mut _warnings: Vec<Warning> = Vec::new();
+    let mut warnings: Vec<Warning> = Vec::new();
+
+    let mut unused_labels: HashSet<&ScopedIdentifier> = definitions.labels.keys().collect();
 
     let mut binary = Binary::new();
 
@@ -139,6 +141,7 @@ pub(crate) fn emit(
                 span,
             } => match find_address(&scoped_identifier, &definitions, &span) {
                 Ok((address, _)) => {
+                    unused_labels.remove(&scoped_identifier);
                     if address <= 0xff {
                         binary.push_byte(LIT, span);
                         binary.push_byte((address & 0xff) as u8, span);
@@ -161,6 +164,7 @@ pub(crate) fn emit(
                 span,
             } => match find_address(&scoped_identifier, &definitions, &span) {
                 Ok((address, other_span)) => {
+                    unused_labels.remove(&scoped_identifier);
                     let offset = address as isize - binary.get_pointer() as isize - 3;
                     if offset < -126 || offset > 126 {
                         errors.push(Error::AddressTooFar {
@@ -185,6 +189,7 @@ pub(crate) fn emit(
                 span,
             } => match find_address(&scoped_identifier, &definitions, &span) {
                 Ok((address, _)) => {
+                    unused_labels.remove(&scoped_identifier);
                     binary.push_byte(LIT2, span);
                     binary.push_short(address, span);
                 }
@@ -198,6 +203,7 @@ pub(crate) fn emit(
                 span,
             } => match find_address(&scoped_identifier, &definitions, &span) {
                 Ok((address, _)) => {
+                    unused_labels.remove(&scoped_identifier);
                     binary.push_short(address, span);
                 }
                 Err(err) => {
@@ -258,10 +264,21 @@ pub(crate) fn emit(
         })
     }
 
+    for unused_label_name in unused_labels
+        .into_iter()
+        .filter(|scoped_identifier| !scoped_identifier.is_captital())
+    {
+        let (_, span) = definitions.labels[&unused_label_name];
+        warnings.push(Warning::LabelUnused {
+            name: unused_label_name.to_string(),
+            span: span.into(),
+        });
+    }
+
     if errors.is_empty() {
-        Ok((binary.into(), _warnings))
+        Ok((binary.into(), warnings))
     } else {
-        Err((errors, _warnings))
+        Err((errors, warnings))
     }
 }
 
@@ -270,34 +287,15 @@ fn find_address(
     definitions: &Definitions,
     span: &Span,
 ) -> Result<(u16, Span), Error> {
-    match scoped_identifier {
-        ScopedIdentifier::Label(name) => match definitions.labels.get(name) {
-            Some((address, span)) => {
-                return Ok((*address, *span));
-            }
-            None => {
-                return Err(Error::LabelUndefined {
-                    name: name.to_owned(),
-                    span: (*span).into(),
-                });
-            }
-        },
-        ScopedIdentifier::Sublabel(label_name, sublabel_name) => {
-            match definitions
-                .sublabels
-                .get(&(label_name.to_owned(), sublabel_name.to_owned()))
-            {
-                Some((address, span)) => {
-                    return Ok((*address, *span));
-                }
-                None => {
-                    return Err(Error::SublabelUndefined {
-                        label_name: label_name.to_owned(),
-                        sublabel_name: sublabel_name.to_owned(),
-                        span: (*span).into(),
-                    });
-                }
-            }
+    match definitions.labels.get(scoped_identifier) {
+        Some((address, span)) => {
+            return Ok((*address, *span));
+        }
+        None => {
+            return Err(Error::LabelUndefined {
+                name: scoped_identifier.to_string(),
+                span: (*span).into(),
+            });
         }
     }
 }
