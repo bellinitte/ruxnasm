@@ -1,13 +1,13 @@
 use crate::{
     instruction::Instruction,
-    token::{Identifier, Token},
+    token::{Identifier, Statement, Token},
 };
 use std::{
     fmt,
     ops::{Add, AddAssign, Range},
 };
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct Location {
     pub(crate) offset: usize,
 }
@@ -28,7 +28,7 @@ impl AddAssign<usize> for Location {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct Span {
     pub(crate) from: Location,
     pub(crate) to: Location,
@@ -59,7 +59,13 @@ impl From<Span> for Range<usize> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+impl fmt::Debug for Span {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_fmt(format_args!("{}..{}", self.from.offset, self.to.offset))
+    }
+}
+
+#[derive(PartialEq, Eq, Clone)]
 pub(crate) struct Spanned<T> {
     pub(crate) node: T,
     pub(crate) span: Span,
@@ -75,16 +81,14 @@ impl<T> Spanned<T> {
     }
 }
 
-impl<T> fmt::Display for Spanned<T>
+impl<T> fmt::Debug for Spanned<T>
 where
-    T: fmt::Display,
+    T: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.node)
+        f.write_fmt(format_args!("{:?} (spanned at {:?})", self.node, self.span))
     }
 }
-
-impl<T> std::error::Error for Spanned<T> where T: std::error::Error {}
 
 pub(crate) trait Spanning
 where
@@ -112,3 +116,4 @@ impl_spanning!(char);
 impl_spanning!(Instruction);
 impl_spanning!(Token);
 impl_spanning!(Identifier);
+impl_spanning!(Statement);

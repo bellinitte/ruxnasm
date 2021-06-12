@@ -1,4 +1,5 @@
 mod anomalies;
+pub(crate) mod emitter;
 mod instruction;
 pub(crate) mod scanner;
 mod span;
@@ -10,7 +11,6 @@ pub use anomalies::{Error, Warning};
 pub(crate) use instruction::{Instruction, InstructionKind};
 pub(crate) use span::{Location, Span, Spanned, Spanning};
 pub(crate) use token::{Identifier, Token};
-use walker::walk;
 
 /// Assembles an Uxn binary from a string representing an Uxntal program.
 ///
@@ -24,23 +24,41 @@ use walker::walk;
 pub fn assemble(
     source: impl AsRef<str>,
 ) -> Result<(Vec<u8>, Vec<Warning>), (Vec<Error>, Vec<Warning>)> {
-    let mut errors = Vec::new();
     let mut warnings = Vec::new();
 
     let words = match scanner::scan(source.as_ref()) {
         Ok((words, new_warnings)) => {
-            warnings.extend(new_warnings.iter().cloned().map(Warning::from));
+            warnings.extend(new_warnings);
             words
         }
         Err(error) => {
-            errors.push(error.into());
+            return Err((vec![error], warnings));
+        }
+    };
+
+    let (statements, definitions) = match walker::walk(words) {
+        Ok((statements, definitions, new_warnings)) => {
+            warnings.extend(new_warnings);
+            (statements, definitions)
+        }
+        Err((errors, new_warnings)) => {
+            warnings.extend(new_warnings);
             return Err((errors, warnings));
         }
     };
 
-    let (new_errors, new_warnings) = walk(&words);
-    errors.extend(new_errors);
-    warnings.extend(new_warnings);
+    // println!("statements: {:#?}", statements);
+    // println!("labels: {:?}", definitions.labels.keys());
+    // println!("sublabels: {:?}", definitions.sublabels.keys());
 
-    Err((errors, warnings))
+    match emitter::emit(statements, definitions) {
+        Ok((binary, new_warnings)) => {
+            warnings.extend(new_warnings);
+            Ok((binary, warnings))
+        }
+        Err((errors, new_warnings)) => {
+            warnings.extend(new_warnings);
+            Err((errors, warnings))
+        }
+    }
 }

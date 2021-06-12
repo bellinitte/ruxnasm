@@ -283,7 +283,7 @@ pub enum Error {
     MacroUndefined {
         /// Name of the macro.
         name: String,
-        /// Span of the macro expansion.
+        /// Span of the macro invocation.
         span: Range<usize>,
     },
     /// This error gets reported when a macro with the same name is defined
@@ -397,5 +397,40 @@ pub enum Error {
     MacroError {
         original_error: Box<Error>,
         span: Range<usize>,
+    },
+    SublabelReferencedWithoutScope {
+        /// Name of the sublabel.
+        name: String,
+        /// Span of the sublabel reference.
+        span: Range<usize>,
+    },
+    LabelUndefined {
+        /// Name of the label.
+        name: String,
+        /// Span of the label reference.
+        span: Range<usize>,
+    },
+    SublabelUndefined {
+        /// Name of the label.
+        label_name: String,
+        /// Name of the sublabel.
+        sublabel_name: String,
+        /// Span of the label reference.
+        span: Range<usize>,
+    },
+    AddressNotZeroPage {
+        address: u16,
+        identifier: String,
+        span: Range<usize>,
+    },
+    AddressTooFar {
+        distance: usize,
+        identifier: String,
+        span: Range<usize>,
+        other_span: Range<usize>,
+        debug: String,
+    },
+    BytesInZerothPage {
+        spans: Vec<Range<usize>>,
     },
 }

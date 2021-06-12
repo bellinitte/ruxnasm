@@ -2,10 +2,11 @@ use super::{Identifier, Token};
 use super::{Span, Spanned, Spanning};
 use crate::anomalies::{Error, Warning};
 use crate::{Instruction, InstructionKind};
+use std::fmt;
 
 mod hex_number;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub(crate) enum Word {
     Fine {
         token: Spanned<Token>,
@@ -433,4 +434,27 @@ fn parse_instruction(symbols: &[Spanned<char>]) -> Option<(Instruction, Vec<Warn
         },
         warnings,
     ));
+}
+
+impl fmt::Debug for Word {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Word::Fine { token, warnings } => {
+                let mut debug_struct = f.debug_struct("Fine");
+                debug_struct.field("token", token);
+                if !warnings.is_empty() {
+                    debug_struct.field("warnings", warnings);
+                }
+                debug_struct.finish()
+            }
+            Word::Faulty { errors, warnings } => {
+                let mut debug_struct = f.debug_struct("Faulty");
+                debug_struct.field("errors", errors);
+                if !warnings.is_empty() {
+                    debug_struct.field("warnings", warnings);
+                }
+                debug_struct.finish()
+            }
+        }
+    }
 }

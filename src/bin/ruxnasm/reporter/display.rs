@@ -306,12 +306,101 @@ impl From<ruxnasm::Error> for FileDiagnostic {
                     span,
                     message: String::new(),
                 }),
-            ruxnasm::Error::MacroError { original_error, span } => FileDiagnostic::from(*original_error)
+            ruxnasm::Error::MacroError {
+                original_error,
+                span,
+            } => FileDiagnostic::from(*original_error).with_label(Label {
+                style: LabelStyle::Secondary,
+                span,
+                message: "in this macro invocation".to_owned(),
+            }),
+            ruxnasm::Error::SublabelReferencedWithoutScope { name, span } => {
+                FileDiagnostic::error()
+                    .with_message(format!(
+                        "sublabel `{}` was referenced without a previously defined label",
+                        name
+                    ))
+                    .with_label(Label {
+                        style: LabelStyle::Primary,
+                        span,
+                        message: String::new(),
+                    })
+            }
+            ruxnasm::Error::LabelUndefined { name, span } => FileDiagnostic::error()
+                .with_message(format!("label `{}` is not defined", name))
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            ruxnasm::Error::SublabelUndefined {
+                label_name,
+                sublabel_name,
+                span,
+            } => FileDiagnostic::error()
+                .with_message(format!(
+                    "sublabel `{}` in scope `{}` is not defined",
+                    sublabel_name, label_name
+                ))
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            ruxnasm::Error::AddressNotZeroPage {
+                address,
+                identifier,
+                span,
+            } => FileDiagnostic::error()
+                .with_message(format!(
+                    "address {:#06x} of label {} is not zero-page",
+                    address, identifier
+                ))
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
+            ruxnasm::Error::AddressTooFar {
+                distance,
+                identifier,
+                span,
+                other_span,
+                debug
+            } => FileDiagnostic::error()
+                .with_message(format!(
+                    "address of label {} is too far to be a relative address (distance {})",
+                    identifier,
+                    distance
+                ))
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                })
                 .with_label(Label {
                     style: LabelStyle::Secondary,
-                    span,
-                    message: "in this macro invocation".to_owned(),
+                    span: other_span,
+                    message: "label definition".to_owned(),
                 })
+                .with_note(debug),
+            ruxnasm::Error::BytesInZerothPage { spans } => {
+                let mut diagnostic = FileDiagnostic::error()
+                    .with_message(format!("found bytes in the zeroth page",))
+                    .with_label(Label {
+                        style: LabelStyle::Primary,
+                        span: spans[0].clone(),
+                        message: String::new(),
+                    });
+                for span in spans.into_iter().skip(1) {
+                    diagnostic = diagnostic.with_label(Label {
+                        style: LabelStyle::Primary,
+                        span,
+                        message: String::new(),
+                    });
+                }
+                diagnostic
+            }
         }
     }
 }
