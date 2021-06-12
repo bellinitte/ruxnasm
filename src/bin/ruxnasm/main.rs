@@ -20,7 +20,13 @@ fn try_main() {
                         for warning in warnings {
                             reporter.emit(warning.into());
                         }
-                        println!("{:?}", binary);
+                        match writer::write(arguments.output_file_path(), &binary) {
+                            Ok(()) => (),
+                            Err(error) => {
+                                let reporter = reporter.demote();
+                                reporter.emit(error.into())
+                            }
+                        }
                     }
                     Err((errors, warnings)) => {
                         for error in errors {
