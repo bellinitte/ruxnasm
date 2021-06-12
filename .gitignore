@@ -2,4 +2,6 @@
 *.swp
 *.bin
 *.rom
+*.hex
+*.chr
 .DS_Store

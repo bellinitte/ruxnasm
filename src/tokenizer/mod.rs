@@ -205,9 +205,9 @@ fn tokenize(word: &[Spanned<char>]) -> Result<(Spanned<Token>, Vec<Warning>), Er
                 }
             }
         }
-        Spanned { node: '"', span } => {
+        Spanned { node: '"', .. } => {
             return Ok((
-                Token::RawWord(to_string(&word[1..])).spanning(span),
+                Token::RawWord(to_string(&word[1..])).spanning(to_span(word).unwrap()),
                 Vec::new(),
             ));
         }
