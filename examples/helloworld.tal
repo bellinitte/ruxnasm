@@ -5,7 +5,7 @@
 ( init )
 
 |0100 ( -> )
-	
+
 	;hello-world
 
 	&loop
@@ -13,7 +13,7 @@
 		( incr ) #0001 ADD2
 		( loop ) LDAk ,&loop JCN
 	POP2
-	
+
 BRK
 
 @hello-world "Hello 20 "World!
