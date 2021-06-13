@@ -11,7 +11,8 @@ use std::vec::IntoIter;
 
 #[derive(Default)]
 struct Environment {
-    address: u16,
+    pointer: u16,
+    length: u16,
     opened_brackets: Vec<Span>,
     opened_braces: Vec<Span>,
     scope: Option<String>,
@@ -24,24 +25,25 @@ struct Environment {
 
 impl Environment {
     pub fn push_bytes(&mut self, bytes: u16, span: Span) {
-        if self.address < 256 {
+        if self.pointer < 256 {
             self.zeroth_page_spans.push(span);
         }
         self.increment_pointer(bytes, span);
+        self.length = self.pointer;
     }
 
     pub fn set_pointer(&mut self, to: u16) -> Result<(), u16> {
-        if to < self.address {
-            return Err(self.address);
+        if self.length > 0 && to < self.pointer {
+            return Err(self.pointer);
         }
-        self.address = to;
+        self.pointer = to;
         Ok(())
     }
 
     pub fn increment_pointer(&mut self, by: u16, span: Span) {
-        match self.address.checked_add(by) {
+        match self.pointer.checked_add(by) {
             Some(result) => {
-                self.address = result;
+                self.pointer = result;
             }
             None => self.overflow_spans.push(span),
         }
@@ -247,7 +249,7 @@ fn walk_rec(
                     } => {
                         if let Some((_, other_span)) = environment.label_definitions.insert(
                             ScopedIdentifier::Label(name.clone()),
-                            (environment.address, span),
+                            (environment.pointer, span),
                         ) {
                             errors.push(Error::LabelDefinedMoreThanOnce {
                                 name: name.clone(),
@@ -264,7 +266,7 @@ fn walk_rec(
                         Some(scope_name) => {
                             if let Some((_, other_span)) = environment.label_definitions.insert(
                                 ScopedIdentifier::Sublabel(scope_name.to_owned(), name.clone()),
-                                (environment.address, span),
+                                (environment.pointer, span),
                             ) {
                                 errors.push(Error::LabelDefinedMoreThanOnce {
                                     name,
