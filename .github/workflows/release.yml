@@ -1,18 +1,9 @@
-name: CI
+name: Release
 
 on:
   push:
-    branches:
-      - main
-    paths-ignore:
-      - 'docs/**'
-      - 'README.md'
-  pull_request:
-    branches:
-      - main
-    paths-ignore:
-      - 'docs/**'
-      - 'README.md'
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+*"
 
 jobs:
   build:
@@ -30,6 +21,9 @@ jobs:
           ARCHIVE_NAME: ruxnasm-x86_64-apple-darwin.tar.gz
 
     steps:
+    - name: Get tag
+      id: tag
+      uses: dawidd6/action-get-tag@v1
     - name: Checkout sources
       uses: actions/checkout@v2
     - name: Install Rust toolchain
@@ -42,19 +36,11 @@ jobs:
     - name: Bundle Ruxnasm
       if: matrix.os != 'windows-latest'
       run: tar -C target/release -czf ${{ matrix.ARCHIVE_NAME }} ruxnasm
-    - name: Upload artifact
-      uses: actions/upload-artifact@v2
+    - name: Upload release
+      uses: svenstaro/upload-release-action@v2
       with:
-        name: ${{ matrix.ARCHIVE_NAME }}
-        path: ${{ matrix.ARCHIVE_NAME }}
-
-  test:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout sources
-      uses: actions/checkout@v2
-    - name: Install Rust toolchain
-      uses: actions-rs/toolchain@v1
-    - name: Test Ruxnasm
-      run: cargo test
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file: ${{ matrix.ARCHIVE_NAME }}
+        asset_name: ${{ matrix.ARCHIVE_NAME }}
+        tag: ${{ github.ref }}
+        overwrite: true
