@@ -14,6 +14,7 @@ const LIT2: u8 = 0x21;
 struct Binary {
     data: [u8; 256 * 256 - 256],
     pointer: u16,
+    length: u16,
 }
 
 impl Binary {
@@ -21,12 +22,14 @@ impl Binary {
         Self {
             data: [0; 256 * 256 - 256],
             pointer: 0,
+            length: 0,
         }
     }
 
     pub fn push_byte(&mut self, byte: u8) {
         self.data[self.pointer as usize - 256] = byte;
         self.increment_pointer(1);
+        self.length = self.pointer;
     }
 
     pub fn push_short(&mut self, short: u16) {
@@ -49,7 +52,7 @@ impl Binary {
 
 impl From<Binary> for Vec<u8> {
     fn from(binary: Binary) -> Self {
-        binary.data[0..binary.pointer as usize - 256].into()
+        binary.data[0..binary.length as usize - 256].into()
     }
 }
 
