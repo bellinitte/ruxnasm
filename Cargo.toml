@@ -1,6 +1,6 @@
 [package]
 name = "ruxnasm"
-version = "0.1.3"
+version = "0.2.0"
 authors = ["Karol Belina <karolbelina@gmail.com>"]
 edition = "2018"
 description = "Alternative Uxntal assembler focused on error reporting"
