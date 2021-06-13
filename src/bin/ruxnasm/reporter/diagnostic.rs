@@ -5,35 +5,18 @@ macro_rules! impl_severities {
         pub fn bug() -> $builder {
             $builder {
                 severity: Severity::Bug,
-                notes: Vec::new(),
             }
         }
 
         pub fn error() -> $builder {
             $builder {
                 severity: Severity::Error,
-                notes: Vec::new(),
             }
         }
 
         pub fn warning() -> $builder {
             $builder {
                 severity: Severity::Warning,
-                notes: Vec::new(),
-            }
-        }
-
-        pub fn note() -> $builder {
-            $builder {
-                severity: Severity::Note,
-                notes: Vec::new(),
-            }
-        }
-
-        pub fn help() -> $builder {
-            $builder {
-                severity: Severity::Help,
-                notes: Vec::new(),
             }
         }
     };
@@ -41,7 +24,6 @@ macro_rules! impl_severities {
 
 pub struct VoidDiagnosticBuilderStage1 {
     severity: Severity,
-    notes: Vec<String>,
 }
 
 impl VoidDiagnosticBuilderStage1 {
@@ -49,13 +31,9 @@ impl VoidDiagnosticBuilderStage1 {
         VoidDiagnostic {
             severity: self.severity,
             message: message.into(),
-            notes: self.notes,
+            notes: Vec::new(),
+            helps: Vec::new(),
         }
-    }
-
-    pub fn with_note(mut self, note: impl Into<String>) -> Self {
-        self.notes.push(note.into());
-        self
     }
 }
 
@@ -63,6 +41,7 @@ pub struct VoidDiagnostic {
     severity: Severity,
     message: String,
     notes: Vec<String>,
+    helps: Vec<String>,
 }
 
 impl<'a> VoidDiagnostic {
@@ -72,11 +51,15 @@ impl<'a> VoidDiagnostic {
         self.notes.push(note.into());
         self
     }
+
+    pub fn with_help(mut self, help: impl Into<String>) -> Self {
+        self.helps.push(help.into());
+        self
+    }
 }
 
 pub struct FileDiagnosticBuilderStage1 {
     severity: Severity,
-    notes: Vec<String>,
 }
 
 impl FileDiagnosticBuilderStage1 {
@@ -84,7 +67,6 @@ impl FileDiagnosticBuilderStage1 {
         FileDiagnosticBuilderStage2 {
             severity: self.severity,
             message: message.into(),
-            notes: self.notes,
         }
     }
 }
@@ -92,7 +74,6 @@ impl FileDiagnosticBuilderStage1 {
 pub struct FileDiagnosticBuilderStage2 {
     severity: Severity,
     message: String,
-    notes: Vec<String>,
 }
 
 impl FileDiagnosticBuilderStage2 {
@@ -102,7 +83,8 @@ impl FileDiagnosticBuilderStage2 {
             message: self.message,
             label,
             additional_labels: Vec::new(),
-            notes: self.notes,
+            notes: Vec::new(),
+            helps: Vec::new(),
         }
     }
 }
@@ -113,6 +95,7 @@ pub struct FileDiagnostic {
     label: Label,
     additional_labels: Vec<Label>,
     notes: Vec<String>,
+    helps: Vec<String>,
 }
 
 impl<'a> FileDiagnostic {
@@ -127,20 +110,18 @@ impl<'a> FileDiagnostic {
         self.notes.push(note.into());
         self
     }
+
+    pub fn with_help(mut self, help: impl Into<String>) -> Self {
+        self.helps.push(help.into());
+        self
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
 pub enum Severity {
-    /// An unexpected bug.
     Bug,
-    /// An error.
     Error,
-    /// A warning.
     Warning,
-    /// A note.
-    Note,
-    /// A help message.
-    Help,
 }
 
 #[derive(Debug, Clone)]
@@ -162,8 +143,6 @@ impl From<Severity> for codespan_reporting::diagnostic::Severity {
             Severity::Bug => Self::Bug,
             Severity::Error => Self::Error,
             Severity::Warning => Self::Warning,
-            Severity::Note => Self::Note,
-            Severity::Help => Self::Help,
         }
     }
 }
@@ -188,19 +167,38 @@ impl From<Label> for codespan_reporting::diagnostic::Label<()> {
     }
 }
 
-impl From<VoidDiagnostic> for codespan_reporting::diagnostic::Diagnostic<()> {
+impl From<VoidDiagnostic> for Vec<codespan_reporting::diagnostic::Diagnostic<()>> {
     fn from(diagnostic: VoidDiagnostic) -> Self {
-        Self {
+        let mut codespan_diagnostics = vec![codespan_reporting::diagnostic::Diagnostic {
             severity: diagnostic.severity.into(),
             code: None,
             message: diagnostic.message,
             labels: Vec::new(),
-            notes: diagnostic.notes,
-        }
+            notes: Vec::new(),
+        }];
+        codespan_diagnostics.extend(diagnostic.notes.into_iter().map(|note| {
+            codespan_reporting::diagnostic::Diagnostic {
+                severity: codespan_reporting::diagnostic::Severity::Note,
+                code: None,
+                message: note,
+                labels: Vec::new(),
+                notes: Vec::new(),
+            }
+        }));
+        codespan_diagnostics.extend(diagnostic.helps.into_iter().map(|help| {
+            codespan_reporting::diagnostic::Diagnostic {
+                severity: codespan_reporting::diagnostic::Severity::Help,
+                code: None,
+                message: help,
+                labels: Vec::new(),
+                notes: Vec::new(),
+            }
+        }));
+        codespan_diagnostics
     }
 }
 
-impl From<FileDiagnostic> for codespan_reporting::diagnostic::Diagnostic<()> {
+impl From<FileDiagnostic> for Vec<codespan_reporting::diagnostic::Diagnostic<()>> {
     fn from(diagnostic: FileDiagnostic) -> Self {
         let mut labels = vec![diagnostic.label.into()];
         labels.extend(
@@ -209,12 +207,33 @@ impl From<FileDiagnostic> for codespan_reporting::diagnostic::Diagnostic<()> {
                 .into_iter()
                 .map(codespan_reporting::diagnostic::Label::from),
         );
-        Self {
-            severity: diagnostic.severity.into(),
-            code: None,
-            message: diagnostic.message,
-            labels,
-            notes: diagnostic.notes,
-        }
+        let mut codespan_diagnostics = vec![
+            codespan_reporting::diagnostic::Diagnostic {
+                severity: diagnostic.severity.into(),
+                code: None,
+                message: diagnostic.message,
+                labels,
+                notes: Vec::new(),
+            }
+        ];
+        codespan_diagnostics.extend(diagnostic.notes.into_iter().map(|note| {
+            codespan_reporting::diagnostic::Diagnostic {
+                severity: codespan_reporting::diagnostic::Severity::Note,
+                code: None,
+                message: note,
+                labels: Vec::new(),
+                notes: Vec::new(),
+            }
+        }));
+        codespan_diagnostics.extend(diagnostic.helps.into_iter().map(|help| {
+            codespan_reporting::diagnostic::Diagnostic {
+                severity: codespan_reporting::diagnostic::Severity::Help,
+                code: None,
+                message: help,
+                labels: Vec::new(),
+                notes: Vec::new(),
+            }
+        }));
+        codespan_diagnostics
     }
 }

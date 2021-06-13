@@ -185,7 +185,7 @@ impl From<ruxnasm::Error> for FileDiagnostic {
                     span,
                     message: String::new(),
                 })
-                .with_note("help: pad the number with zeros"),
+                .with_help("pad the number with zeros"),
             ruxnasm::Error::HexNumberTooLong {
                 length,
                 number,
@@ -421,19 +421,20 @@ impl From<ruxnasm::Warning> for FileDiagnostic {
                     message: format!("previous definition of mode `{}` here", instruction_mode),
                 }),
             ruxnasm::Warning::MacroUnused { name, span } => FileDiagnostic::warning()
-                .with_message(format!("unused macro `{}`", name))
+                .with_message(format!("macro `{}` is never used", name))
                 .with_label(Label {
                     style: LabelStyle::Primary,
                     span,
                     message: String::new(),
                 }),
             ruxnasm::Warning::LabelUnused { name, span } => FileDiagnostic::warning()
-                .with_message(format!("unused label `{}`", name))
+                .with_message(format!("label `{}` is never used", name))
                 .with_label(Label {
                     style: LabelStyle::Primary,
                     span,
                     message: String::new(),
-                }),
+                })
+                .with_help("if this is intentional, prefix it with a capital letter"),
         }
     }
 }

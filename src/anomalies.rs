@@ -36,7 +36,6 @@ pub enum Warning {
         name: String,
         span: Range<usize>,
     },
-    // TODO: if this is intentional, prefix it with an underscore
     LabelUnused {
         name: String,
         span: Range<usize>,
