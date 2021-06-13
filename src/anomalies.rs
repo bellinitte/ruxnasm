@@ -432,4 +432,9 @@ pub enum Error {
     BytesInZerothPage {
         spans: Vec<Range<usize>>,
     },
+    PaddedBackwards {
+        previous_pointer: usize,
+        desired_pointer: usize,
+        span: Range<usize>,
+    }
 }

@@ -126,8 +126,15 @@ pub(crate) fn emit(
             }
             Spanned {
                 node: Statement::PadAbsolute(value),
-                ..
+                span
             } => {
+                if value < binary.get_pointer() as usize {
+                    errors.push(Error::PaddedBackwards {
+                        previous_pointer: binary.get_pointer() as usize,
+                        desired_pointer: value,
+                        span: span.into(),
+                    });
+                }
                 binary.set_pointer(value as u16);
             }
             Spanned {

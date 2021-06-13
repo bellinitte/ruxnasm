@@ -384,6 +384,17 @@ impl From<ruxnasm::Error> for FileDiagnostic {
                 }
                 diagnostic
             }
+            ruxnasm::Error::PaddedBackwards {
+                previous_pointer,
+                desired_pointer,
+                span
+            } => FileDiagnostic::error()
+                .with_message("the binary can only be padded forwards")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: format!("tried to pad from address {} to address {}", previous_pointer, desired_pointer),
+                }),
         }
     }
 }
