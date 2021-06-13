@@ -207,15 +207,13 @@ impl From<FileDiagnostic> for Vec<codespan_reporting::diagnostic::Diagnostic<()>
                 .into_iter()
                 .map(codespan_reporting::diagnostic::Label::from),
         );
-        let mut codespan_diagnostics = vec![
-            codespan_reporting::diagnostic::Diagnostic {
-                severity: diagnostic.severity.into(),
-                code: None,
-                message: diagnostic.message,
-                labels,
-                notes: Vec::new(),
-            }
-        ];
+        let mut codespan_diagnostics = vec![codespan_reporting::diagnostic::Diagnostic {
+            severity: diagnostic.severity.into(),
+            code: None,
+            message: diagnostic.message,
+            labels,
+            notes: Vec::new(),
+        }];
         codespan_diagnostics.extend(diagnostic.notes.into_iter().map(|note| {
             codespan_reporting::diagnostic::Diagnostic {
                 severity: codespan_reporting::diagnostic::Severity::Note,

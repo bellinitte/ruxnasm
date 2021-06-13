@@ -367,33 +367,33 @@ impl From<ruxnasm::Error> for FileDiagnostic {
                     span: other_span,
                     message: "label definition".to_owned(),
                 }),
-            ruxnasm::Error::BytesInZerothPage { spans } => {
-                let mut diagnostic = FileDiagnostic::error()
-                    .with_message(format!("found bytes in the zeroth page",))
-                    .with_label(Label {
-                        style: LabelStyle::Primary,
-                        span: spans[0].clone(),
-                        message: String::new(),
-                    });
-                for span in spans.into_iter().skip(1) {
-                    diagnostic = diagnostic.with_label(Label {
-                        style: LabelStyle::Primary,
-                        span,
-                        message: String::new(),
-                    });
-                }
-                diagnostic
-            }
+            ruxnasm::Error::BytesInZerothPage { span } => FileDiagnostic::error()
+                .with_message(format!("found bytes on the zeroth page",))
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
+                }),
             ruxnasm::Error::PaddedBackwards {
                 previous_pointer,
                 desired_pointer,
-                span
+                span,
             } => FileDiagnostic::error()
                 .with_message("the binary can only be padded forwards")
                 .with_label(Label {
                     style: LabelStyle::Primary,
                     span,
-                    message: format!("tried to pad from address {} to address {}", previous_pointer, desired_pointer),
+                    message: format!(
+                        "tried to pad from address {} to address {}",
+                        previous_pointer, desired_pointer
+                    ),
+                }),
+            ruxnasm::Error::ProgramTooLong { span } => FileDiagnostic::error()
+                .with_message("program size exceeded 65536 bytes")
+                .with_label(Label {
+                    style: LabelStyle::Primary,
+                    span,
+                    message: String::new(),
                 }),
         }
     }

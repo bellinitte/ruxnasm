@@ -40,7 +40,8 @@ impl VoidReporter {
     }
 
     pub fn emit(&self, diagnostic: VoidDiagnostic) {
-        let codespan_diagnostics: Vec<codespan_reporting::diagnostic::Diagnostic<()>> = diagnostic.into();
+        let codespan_diagnostics: Vec<codespan_reporting::diagnostic::Diagnostic<()>> =
+            diagnostic.into();
         for codespan_diagnostic in codespan_diagnostics {
             let _ = codespan_reporting::term::emit(
                 &mut self.writer.write().unwrap().lock(),
@@ -67,7 +68,8 @@ impl<'a> FileReporter<'a> {
     }
 
     pub fn emit(&self, diagnostic: FileDiagnostic) {
-        let codespan_diagnostics: Vec<codespan_reporting::diagnostic::Diagnostic<()>> = diagnostic.into();
+        let codespan_diagnostics: Vec<codespan_reporting::diagnostic::Diagnostic<()>> =
+            diagnostic.into();
         for codespan_diagnostic in codespan_diagnostics {
             let _ = codespan_reporting::term::emit(
                 &mut self.writer.write().unwrap().lock(),

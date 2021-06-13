@@ -18,6 +18,34 @@ struct Environment {
     macro_definitions: HashMap<String, (Vec<Word>, Span)>,
     unused_macros: HashSet<String>,
     label_definitions: HashMap<ScopedIdentifier, (u16, Span)>,
+    zeroth_page_spans: Vec<Span>,
+    overflow_spans: Vec<Span>,
+}
+
+impl Environment {
+    pub fn push_bytes(&mut self, bytes: u16, span: Span) {
+        if self.address < 256 {
+            self.zeroth_page_spans.push(span);
+        }
+        self.increment_pointer(bytes, span);
+    }
+
+    pub fn set_pointer(&mut self, to: u16) -> Result<(), u16> {
+        if to < self.address {
+            return Err(self.address);
+        }
+        self.address = to;
+        Ok(())
+    }
+
+    pub fn increment_pointer(&mut self, by: u16, span: Span) {
+        match self.address.checked_add(by) {
+            Some(result) => {
+                self.address = result;
+            }
+            None => self.overflow_spans.push(span),
+        }
+    }
 }
 
 pub(crate) struct Definitions {
@@ -54,6 +82,26 @@ pub(crate) fn walk(
         errors.push(Error::NoMatchingClosingBrace {
             span: opened_brace.into(),
         })
+    }
+
+    if !environment.zeroth_page_spans.is_empty() {
+        let mut entire_span = environment.zeroth_page_spans[0];
+        for span in environment.zeroth_page_spans.into_iter().skip(1) {
+            entire_span = Span::combine(&entire_span, &span)
+        }
+        errors.push(Error::BytesInZerothPage {
+            span: entire_span.into(),
+        });
+    }
+
+    if !environment.overflow_spans.is_empty() {
+        let mut entire_span = environment.overflow_spans[0];
+        for span in environment.overflow_spans.into_iter().skip(1) {
+            entire_span = Span::combine(&entire_span, &span)
+        }
+        errors.push(Error::ProgramTooLong {
+            span: entire_span.into(),
+        });
     }
 
     for unused_macro_name in environment.unused_macros {
@@ -130,7 +178,7 @@ fn walk_rec(
                         span,
                     } => {
                         statements.push(Statement::Instruction(instruction).spanning(span));
-                        environment.address += 1;
+                        environment.push_bytes(1, span);
                     }
                     Spanned {
                         node: Token::MacroDefine(name),
@@ -177,14 +225,21 @@ fn walk_rec(
                         span,
                     } => {
                         statements.push(Statement::PadAbsolute(value).spanning(span));
-                        environment.address = value as u16;
+                        match environment.set_pointer(value as u16) {
+                            Ok(()) => (),
+                            Err(previous_address) => errors.push(Error::PaddedBackwards {
+                                previous_pointer: previous_address as usize,
+                                desired_pointer: value,
+                                span: span.into(),
+                            })
+                        }
                     }
                     Spanned {
                         node: Token::PadRelative(value),
                         span,
                     } => {
                         statements.push(Statement::PadRelative(value).spanning(span));
-                        environment.address += value as u16;
+                        environment.increment_pointer(value as u16, span);
                     }
                     Spanned {
                         node: Token::LabelDefine(name),
@@ -231,7 +286,7 @@ fn walk_rec(
                             statements.push(
                                 Statement::LiteralZeroPageAddress(scoped_identifier).spanning(span),
                             );
-                            environment.address += 2;
+                            environment.push_bytes(2, span);
                         }
                         Err(err) => errors.push(err),
                     },
@@ -243,7 +298,7 @@ fn walk_rec(
                             statements.push(
                                 Statement::LiteralRelativeAddress(scoped_identifier).spanning(span),
                             );
-                            environment.address += 2;
+                            environment.push_bytes(2, span);
                         }
                         Err(err) => errors.push(err),
                     },
@@ -255,7 +310,7 @@ fn walk_rec(
                             statements.push(
                                 Statement::LiteralAbsoluteAddress(scoped_identifier).spanning(span),
                             );
-                            environment.address += 3;
+                            environment.push_bytes(3, span);
                         }
                         Err(err) => errors.push(err),
                     },
@@ -266,7 +321,7 @@ fn walk_rec(
                         Ok(scoped_identifier) => {
                             statements
                                 .push(Statement::RawAddress(scoped_identifier).spanning(span));
-                            environment.address += 2;
+                            environment.push_bytes(2, span);
                         }
                         Err(err) => errors.push(err),
                     },
@@ -275,41 +330,41 @@ fn walk_rec(
                         span,
                     } => {
                         statements.push(Statement::LiteralHexByte(value).spanning(span));
-                        environment.address += 2;
+                        environment.push_bytes(2, span);
                     }
                     Spanned {
                         node: Token::LiteralHexShort(value),
                         span,
                     } => {
                         statements.push(Statement::LiteralHexShort(value).spanning(span));
-                        environment.address += 3;
+                        environment.push_bytes(3, span);
                     }
                     Spanned {
                         node: Token::RawHexByte(value),
                         span,
                     } => {
                         statements.push(Statement::RawHexByte(value).spanning(span));
-                        environment.address += 1;
+                        environment.push_bytes(1, span);
                     }
                     Spanned {
                         node: Token::RawHexShort(value),
                         span,
                     } => {
                         statements.push(Statement::RawHexShort(value).spanning(span));
-                        environment.address += 2;
+                        environment.push_bytes(2, span);
                     }
                     Spanned {
                         node: Token::RawChar(value),
                         span,
                     } => {
                         statements.push(Statement::RawChar(value).spanning(span));
-                        environment.address += 1;
+                        environment.push_bytes(1, span);
                     }
                     Spanned {
                         node: Token::RawWord(word),
                         span,
                     } => {
-                        environment.address += word.bytes().len() as u16;
+                        environment.push_bytes(word.bytes().len() as u16, span);
                         statements.push(Statement::RawWord(word).spanning(span));
                     }
                 }

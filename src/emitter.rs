@@ -14,7 +14,6 @@ const LIT2: u8 = 0x21;
 struct Binary {
     data: [u8; 256 * 256 - 256],
     pointer: u16,
-    zeroth_page_spans: HashSet<Span>,
 }
 
 impl Binary {
@@ -22,22 +21,17 @@ impl Binary {
         Self {
             data: [0; 256 * 256 - 256],
             pointer: 0,
-            zeroth_page_spans: HashSet::new(),
         }
     }
 
-    pub fn push_byte(&mut self, byte: u8, span: Span) {
-        if self.pointer < 256 {
-            self.zeroth_page_spans.insert(span);
-        } else {
-            self.data[self.pointer as usize - 256] = byte;
-        }
+    pub fn push_byte(&mut self, byte: u8) {
+        self.data[self.pointer as usize - 256] = byte;
         self.increment_pointer(1);
     }
 
-    pub fn push_short(&mut self, short: u16, span: Span) {
-        self.push_byte(((short >> 8) & 0xff) as u8, span);
-        self.push_byte((short & 0x00ff) as u8, span);
+    pub fn push_short(&mut self, short: u16) {
+        self.push_byte(((short >> 8) & 0xff) as u8);
+        self.push_byte((short & 0x00ff) as u8);
     }
 
     pub fn set_pointer(&mut self, to: u16) {
@@ -51,21 +45,11 @@ impl Binary {
     pub fn get_pointer(&self) -> u16 {
         self.pointer
     }
-
-    pub fn get_zeroth_page_spans(&self) -> Vec<Span> {
-        self.zeroth_page_spans.iter().copied().collect()
-    }
 }
 
 impl From<Binary> for Vec<u8> {
     fn from(binary: Binary) -> Self {
-        let position = binary
-            .data
-            .iter()
-            .rposition(|byte| *byte != 0x00)
-            .map(|i| i + 1)
-            .unwrap_or(0);
-        binary.data[0..position].into()
+        binary.data[0..binary.pointer as usize - 256].into()
     }
 }
 
@@ -84,7 +68,7 @@ pub(crate) fn emit(
         match statement {
             Spanned {
                 node: Statement::Instruction(instruction),
-                span,
+                ..
             } => {
                 let opcode = match instruction.instruction_kind {
                     InstructionKind::Break => 0x00,
@@ -122,19 +106,12 @@ pub(crate) fn emit(
                 } | ((instruction.short as u8) << 5)
                     | ((instruction.r#return as u8) << 6)
                     | ((instruction.keep as u8) << 7);
-                binary.push_byte(opcode, span);
+                binary.push_byte(opcode);
             }
             Spanned {
                 node: Statement::PadAbsolute(value),
-                span
+                ..
             } => {
-                if value < binary.get_pointer() as usize {
-                    errors.push(Error::PaddedBackwards {
-                        previous_pointer: binary.get_pointer() as usize,
-                        desired_pointer: value,
-                        span: span.into(),
-                    });
-                }
                 binary.set_pointer(value as u16);
             }
             Spanned {
@@ -150,8 +127,8 @@ pub(crate) fn emit(
                 Ok((address, _)) => {
                     unused_labels.remove(&scoped_identifier);
                     if address <= 0xff {
-                        binary.push_byte(LIT, span);
-                        binary.push_byte((address & 0xff) as u8, span);
+                        binary.push_byte(LIT);
+                        binary.push_byte((address & 0xff) as u8);
                     } else {
                         errors.push(Error::AddressNotZeroPage {
                             address,
@@ -182,8 +159,8 @@ pub(crate) fn emit(
                         });
                         binary.increment_pointer(2);
                     } else {
-                        binary.push_byte(LIT, span);
-                        binary.push_byte(offset as u8, span);
+                        binary.push_byte(LIT);
+                        binary.push_byte(offset as u8);
                     }
                 }
                 Err(err) => {
@@ -197,8 +174,8 @@ pub(crate) fn emit(
             } => match find_address(&scoped_identifier, &definitions, &span) {
                 Ok((address, _)) => {
                     unused_labels.remove(&scoped_identifier);
-                    binary.push_byte(LIT2, span);
-                    binary.push_short(address, span);
+                    binary.push_byte(LIT2);
+                    binary.push_short(address);
                 }
                 Err(err) => {
                     errors.push(err);
@@ -211,7 +188,7 @@ pub(crate) fn emit(
             } => match find_address(&scoped_identifier, &definitions, &span) {
                 Ok((address, _)) => {
                     unused_labels.remove(&scoped_identifier);
-                    binary.push_short(address, span);
+                    binary.push_short(address);
                 }
                 Err(err) => {
                     errors.push(err);
@@ -220,55 +197,45 @@ pub(crate) fn emit(
             },
             Spanned {
                 node: Statement::LiteralHexByte(value),
-                span,
+                ..
             } => {
-                binary.push_byte(LIT, span);
-                binary.push_byte(value, span);
+                binary.push_byte(LIT);
+                binary.push_byte(value);
             }
             Spanned {
                 node: Statement::LiteralHexShort(value),
-                span,
+                ..
             } => {
-                binary.push_byte(LIT2, span);
-                binary.push_short(value, span);
+                binary.push_byte(LIT2);
+                binary.push_short(value);
             }
             Spanned {
                 node: Statement::RawHexByte(value),
-                span,
+                ..
             } => {
-                binary.push_byte(value, span);
+                binary.push_byte(value);
             }
             Spanned {
                 node: Statement::RawHexShort(value),
-                span,
+                ..
             } => {
-                binary.push_short(value, span);
+                binary.push_short(value);
             }
             Spanned {
                 node: Statement::RawChar(value),
-                span,
+                ..
             } => {
-                binary.push_byte(value, span);
+                binary.push_byte(value);
             }
             Spanned {
                 node: Statement::RawWord(word),
-                span,
+                ..
             } => {
                 for byte in word.bytes() {
-                    binary.push_byte(byte, span);
+                    binary.push_byte(byte);
                 }
             }
         }
-    }
-
-    let zeroth_page_spans = binary.get_zeroth_page_spans();
-    if !zeroth_page_spans.is_empty() {
-        errors.push(Error::BytesInZerothPage {
-            spans: zeroth_page_spans
-                .into_iter()
-                .map(|span| span.into())
-                .collect(),
-        })
     }
 
     for unused_label_name in unused_labels

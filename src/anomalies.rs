@@ -430,11 +430,14 @@ pub enum Error {
         other_span: Range<usize>,
     },
     BytesInZerothPage {
-        spans: Vec<Range<usize>>,
+        span: Range<usize>,
     },
     PaddedBackwards {
         previous_pointer: usize,
         desired_pointer: usize,
         span: Range<usize>,
-    }
+    },
+    ProgramTooLong {
+        span: Range<usize>,
+    },
 }
