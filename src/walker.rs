@@ -229,7 +229,7 @@ fn walk_rec(
                             Ok(()) => (),
                             Err(previous_address) => errors.push(Error::PaddedBackwards {
                                 previous_pointer: previous_address as usize,
-                                desired_pointer: value,
+                                desired_pointer: value as usize,
                                 span: span.into(),
                             })
                         }

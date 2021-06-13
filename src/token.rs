@@ -3,8 +3,8 @@ use super::Instruction;
 #[derive(Debug, Clone)]
 pub(crate) enum Statement {
     Instruction(Instruction),
-    PadAbsolute(usize),
-    PadRelative(usize),
+    PadAbsolute(u16),
+    PadRelative(u16),
     LiteralZeroPageAddress(ScopedIdentifier),
     LiteralRelativeAddress(ScopedIdentifier),
     LiteralAbsoluteAddress(ScopedIdentifier),
@@ -52,8 +52,8 @@ pub(crate) enum Token {
     Instruction(Instruction),
     MacroDefine(String),
     MacroInvoke(String),
-    PadAbsolute(usize),
-    PadRelative(usize),
+    PadAbsolute(u16),
+    PadRelative(u16),
     LabelDefine(String),
     SublabelDefine(String),
     LiteralZeroPageAddress(Identifier),

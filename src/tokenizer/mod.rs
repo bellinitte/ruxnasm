@@ -64,6 +64,11 @@ fn tokenize(word: &[Spanned<char>]) -> Result<(Spanned<Token>, Vec<Warning>), Er
                     number: to_string(&word[1..]),
                     span: span.into(),
                 },
+                hex_number::Error2::TooLong { length } => Error::HexNumberTooLong {
+                    length,
+                    number: to_string(&word[1..]),
+                    span: to_span(&word[1..]).unwrap().into(),
+                },
             })
             .map(|value| Token::PadAbsolute(value))
             .map(|token| (token.spanning(to_span(word).unwrap()), Vec::new())),
@@ -74,6 +79,11 @@ fn tokenize(word: &[Spanned<char>]) -> Result<(Spanned<Token>, Vec<Warning>), Er
                     digit,
                     number: to_string(&word[1..]),
                     span: span.into(),
+                },
+                hex_number::Error2::TooLong { length } => Error::HexNumberTooLong {
+                    length,
+                    number: to_string(&word[1..]),
+                    span: to_span(&word[1..]).unwrap().into(),
                 },
             })
             .map(|value| Token::PadRelative(value))

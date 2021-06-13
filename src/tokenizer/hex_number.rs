@@ -39,14 +39,15 @@ pub(crate) fn parse_hex_number(symbols: &[Spanned<char>]) -> Result<HexNumber, E
 pub(crate) enum Error2 {
     DigitExpected,
     DigitInvalid { digit: char, span: Span },
+    TooLong { length: usize },
 }
 
-pub(crate) fn parse_hex_number_unconstrained(symbols: &[Spanned<char>]) -> Result<usize, Error2> {
-    let mut value: usize = 0;
+pub(crate) fn parse_hex_number_unconstrained(symbols: &[Spanned<char>]) -> Result<u16, Error2> {
+    let mut value: u16 = 0;
 
     for Spanned { node: ch, span } in symbols {
         if is_hex_digit(*ch) {
-            value = (value << 4) + to_hex_digit(*ch).unwrap() as usize;
+            value = (value << 4) + to_hex_digit(*ch).unwrap() as u16;
         } else {
             return Err(Error2::DigitInvalid {
                 digit: *ch,
@@ -57,6 +58,7 @@ pub(crate) fn parse_hex_number_unconstrained(symbols: &[Spanned<char>]) -> Resul
 
     match symbols.len() {
         0 => Err(Error2::DigitExpected),
+        length if length > 4 => Err(Error2::TooLong { length }),
         _ => Ok(value),
     }
 }
