@@ -21,6 +21,14 @@ pub(crate) use token::{Identifier, Token};
 ///   `Err((Vec<Error>, Vec<Warning>))`, which contains all [`Error`]s in the program, along with
 ///   any [`Warning`]s that may have also been generated. The `Vec` containing the errors is always
 ///   non-empty.
+///
+/// # Example
+///
+/// ```rust
+/// let (binary, _) = ruxnasm::assemble("|0100 #02 #03 ADD").unwrap();
+///
+/// assert_eq!(binary, [0x01, 0x02, 0x01, 0x03, 0x18]);
+/// ```
 pub fn assemble(
     source: impl AsRef<str>,
 ) -> Result<(Vec<u8>, Vec<Warning>), (Vec<Error>, Vec<Warning>)> {

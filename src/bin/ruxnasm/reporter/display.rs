@@ -339,7 +339,7 @@ impl From<ruxnasm::Error> for FileDiagnostic {
                 span,
             } => FileDiagnostic::error()
                 .with_message(format!(
-                    "address {:#06x} of label {} is not zero-page",
+                    "address {:#06x} of label `{}` is not zero-page",
                     address, identifier
                 ))
                 .with_label(Label {
@@ -354,7 +354,7 @@ impl From<ruxnasm::Error> for FileDiagnostic {
                 other_span,
             } => FileDiagnostic::error()
                 .with_message(format!(
-                    "address of label {} is too far to be a relative address (distance {})",
+                    "address of label `{}` is too far to be a relative address (distance {})",
                     identifier, distance
                 ))
                 .with_label(Label {

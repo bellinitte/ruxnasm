@@ -32,12 +32,30 @@ pub enum Warning {
         /// Span of the instruction mode character defined for the first time.
         other_span: Range<usize>,
     },
+    /// This warning gets reported when a macro is never used.
+    ///
+    /// # Example
+    ///
+    /// ```uxntal
+    /// %macro { #0001 }
+    /// ```
     MacroUnused {
+        /// Name of the unused macro.
         name: String,
+        /// Span of the macro definition.
         span: Range<usize>,
     },
+    /// This warning gets reported when a label is never used.
+    ///
+    /// # Example
+    ///
+    /// ```uxntal
+    /// @label
+    /// ```
     LabelUnused {
+        /// Name of the unused label.
         name: String,
+        /// Span of the label definition.
         span: Range<usize>,
     },
 }
@@ -402,42 +420,122 @@ pub enum Error {
         /// Span of the opening bracket with no matching closing bracket.
         span: Range<usize>,
     },
+    /// This error wraps an error that has been reported from a macro definition.
+    ///
+    /// # Example
+    ///
+    /// ```uxntal
+    /// %macro { #001 }
+    /// macro
+    /// ```
     MacroError {
+        /// The error that has been reported from a macro definition.
         original_error: Box<Error>,
+        /// Span of the macro invocation.
         span: Range<usize>,
     },
+    /// This error gets reported during an attempt to reference a sublabel, when
+    /// no previous label has been defined.
+    ///
+    /// # Example
+    ///
+    /// ```uxntal
+    /// .&sublabel
+    /// ```
     SublabelReferencedWithoutScope {
         /// Name of the sublabel.
         name: String,
         /// Span of the sublabel reference.
         span: Range<usize>,
     },
+    /// This error gets reported during an attempt to reference a label that
+    /// has not been defined.
+    ///
+    /// # Example
+    ///
+    /// ```uxntal
+    /// .label
+    /// ```
     LabelUndefined {
         /// Name of the label.
         name: String,
         /// Span of the label reference.
         span: Range<usize>,
     },
+    /// This error gets reported during an attempt to reference a non-zero-page label
+    /// after a literal zero-page address rune.
+    ///
+    /// # Example
+    ///
+    /// ```uxntal
+    /// |0100 @label
+    /// .label
+    /// ```
     AddressNotZeroPage {
+        /// The actuall address that is not zero-page.
         address: u16,
+        /// Name of the identifier that is referenced by the literal zero-page address.
         identifier: String,
+        /// Span of the literal zero-page address.
         span: Range<usize>,
     },
+    /// This error gets reported during an attempt to reference a label that
+    /// is too far to be a relative address after a literal relative address rune.
+    ///
+    /// # Example
+    ///
+    /// ```uxntal
+    /// @label
+    /// |0100 ,label
+    /// ```
     AddressTooFar {
+        /// The distance in bytes from the literal relative address and the label definition.
         distance: usize,
+        /// Name of the identifier that is referenced by the literal relative address.
         identifier: String,
+        /// Span of the literal relative address.
         span: Range<usize>,
+        /// Span of the label definition that is referenced by the literal relative address.
         other_span: Range<usize>,
     },
+    /// This error gets reported when there are bytes in the zeroth page (first
+    /// 256 bytes) of the binary.
+    ///
+    /// # Example
+    ///
+    /// ```uxntal
+    /// #01 #02 ADD
+    /// ```
     BytesInZerothPage {
+        /// Span of the tokens in the zeroth page.
         span: Range<usize>,
     },
+    /// This error gets reported during an attempt to do an absolute pad
+    /// to an address before the current address pointer.
+    ///
+    /// # Example
+    ///
+    /// ```uxntal
+    /// #01 #02 ADD
+    /// |0000 #02 #03 ADD
+    /// ```
     PaddedBackwards {
+        /// The address at which the absolute pad is attempted.
         previous_pointer: usize,
+        /// The address to which the absolute pad is attempted.
         desired_pointer: usize,
+        /// Span of the absolute pad.
         span: Range<usize>,
     },
+    /// This error gets reported when the program size exceeds 65536 bytes.
+    ///
+    /// # Example
+    ///
+    /// ```uxntal
+    /// |ffff #01 #02 ADD
+    /// ```
     ProgramTooLong {
+        /// Span of the tokens that exceed the maximum size.
         span: Range<usize>,
     },
 }

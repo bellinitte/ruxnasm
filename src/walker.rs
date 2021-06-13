@@ -233,7 +233,7 @@ fn walk_rec(
                                 previous_pointer: previous_address as usize,
                                 desired_pointer: value as usize,
                                 span: span.into(),
-                            })
+                            }),
                         }
                     }
                     Spanned {
