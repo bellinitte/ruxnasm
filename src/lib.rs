@@ -5,12 +5,15 @@ pub(crate) mod scanner;
 mod span;
 mod token;
 pub(crate) mod tokenizer;
+mod traits;
 pub(crate) mod walker;
 
 pub use anomalies::{Error, Warning};
 pub(crate) use instruction::{Instruction, InstructionKind};
 pub(crate) use span::{Location, Span, Spanned, Spanning};
 pub(crate) use token::{Identifier, Token};
+use tokenizer::Word;
+pub(crate) use traits::{Stockpile, UnzipCollect};
 
 /// Assembles an Uxn binary from a string representing an Uxntal program.
 ///
@@ -32,17 +35,26 @@ pub(crate) use token::{Identifier, Token};
 pub fn assemble(source: &[u8]) -> Result<(Vec<u8>, Vec<Warning>), (Vec<Error>, Vec<Warning>)> {
     let mut warnings = Vec::new();
 
-    let words = match scanner::scan(source) {
-        Ok((words, new_warnings)) => {
-            warnings.extend(new_warnings);
-            words
-        }
-        Err(error) => {
-            return Err((vec![error], warnings));
-        }
-    };
+    let words = scanner::Scanner::new(source)
+        .unzip_collect()
+        .stockpile(&mut warnings)
+        .map_err(|errors| (errors, warnings.clone()))?;
 
-    let (statements, definitions) = match walker::walk(words) {
+    let mut walker = walker::Walker::new();
+    let words: Vec<&Word> = words.iter().collect();
+    let mut stack: Vec<Vec<&Word>> = vec![words];
+
+    while let Some(top) = stack.pop() {
+        match walker.walk(&top) {
+            Some((new_words, previous_words)) => {
+                stack.push(previous_words);
+                stack.push(new_words);
+            }
+            None => (),
+        }
+    }
+
+    let (statements, definitions) = match walker.finalize() {
         Ok((statements, definitions, new_warnings)) => {
             warnings.extend(new_warnings);
             (statements, definitions)
@@ -53,7 +65,7 @@ pub fn assemble(source: &[u8]) -> Result<(Vec<u8>, Vec<Warning>), (Vec<Error>, V
         }
     };
 
-    // println!("statements: {:#?}", statements);
+    println!("statements: {:#?}", statements);
     // println!("labels: {:?}", definitions.labels.keys());
     // println!("sublabels: {:?}", definitions.sublabels.keys());
 

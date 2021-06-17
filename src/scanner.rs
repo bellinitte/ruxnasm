@@ -1,3 +1,8 @@
+use std::{
+    iter::{Copied, Peekable},
+    slice::Iter,
+};
+
 pub use crate::anomalies::{Error, Warning};
 use crate::{tokenizer::Word, Location, Span, Spanned, Spanning};
 
@@ -15,102 +20,114 @@ fn is_whitespace(ch: u8) -> bool {
     WHITESPACES.contains(&ch)
 }
 
-pub(crate) fn scan<'a>(input_file_contents: &'a [u8]) -> Result<(Vec<Word>, Vec<Warning>), Error> {
-    let mut chars = input_file_contents.into_iter().copied().peekable();
-    let mut location = Location { offset: 0 };
-    let mut words = Vec::new();
-    let mut warnings = Vec::new();
+pub(crate) struct Scanner<'a> {
+    chars: Peekable<Copied<Iter<'a, u8>>>,
+    location: Location,
+}
 
-    'chars: loop {
+impl<'a> Scanner<'a> {
+    pub fn new(input_file_contents: &'a [u8]) -> Self {
+        Self {
+            chars: input_file_contents.into_iter().copied().peekable(),
+            location: Location { offset: 0 },
+        }
+    }
+}
+
+impl<'a> Iterator for Scanner<'a> {
+    type Item = Result<(Word, Option<Warning>), Error>;
+
+    fn next(&mut self) -> Option<Self::Item> {
         let ch = 'whitespace: loop {
-            match chars.next() {
+            match self.chars.next() {
                 Some(ch) if is_whitespace(ch) => {
-                    location += 1;
+                    self.location += 1;
                     continue;
                 }
                 Some(b'(') => {
-                    let comment_start_location = location;
-                    location += 1;
+                    let comment_start_location = self.location;
+                    self.location += 1;
                     let mut comment_level: usize = 1;
 
                     'comment: loop {
-                        match chars.next() {
+                        match self.chars.next() {
                             Some(b'(') => {
-                                location += 1;
+                                self.location += 1;
                                 comment_level += 1;
                             }
                             Some(b')') => {
-                                location += 1;
+                                self.location += 1;
                                 comment_level -= 1;
                                 if comment_level == 0 {
                                     break 'comment;
                                 }
                             }
                             Some(_) => {
-                                location += 1;
+                                self.location += 1;
                             }
                             None => {
-                                return Err(Error::NoMatchingClosingParenthesis {
+                                return Some(Err(Error::NoMatchingClosingParenthesis {
                                     span: Span::new(comment_start_location).into(),
-                                })
+                                }))
                             }
                         }
                     }
                 }
                 Some(b')') => {
-                    return Err(Error::NoMatchingOpeningParenthesis {
-                        span: Span::new(location).into(),
-                    })
+                    return Some(Err(Error::NoMatchingOpeningParenthesis {
+                        span: Span::new(self.location).into(),
+                    }))
                 }
                 Some(ch) => break 'whitespace ch,
-                None => break 'chars,
+                None => return None,
             }
         };
 
         let mut symbols: Vec<Spanned<u8>> = Vec::new();
-        symbols.push((ch).spanning(Span::new(location)));
-        location += 1;
+        symbols.push((ch).spanning(Span::new(self.location)));
+        self.location += 1;
         let mut ignored_start: Option<Location> = None;
 
         // TODO: Refactor the string scanning
         if ch == b'"' || ch == b'\'' {
-            while chars.peek().is_none() || !is_whitespace(*chars.peek().unwrap()) {
-                let ch = chars.next().unwrap();
+            while self.chars.peek().is_none() || !is_whitespace(*self.chars.peek().unwrap()) {
+                let ch = self.chars.next().unwrap();
                 if symbols.len() < 64 {
-                    symbols.push(ch.spanning(Span::new(location)));
+                    symbols.push(ch.spanning(Span::new(self.location)));
                 } else {
                     if ignored_start.is_none() {
-                        ignored_start = Some(location);
+                        ignored_start = Some(self.location);
                     }
                 }
-                location += 1;
+                self.location += 1;
             }
         } else {
-            while !is_delimiter(chars.peek()) {
-                let ch = chars.next().unwrap();
+            while !is_delimiter(self.chars.peek()) {
+                let ch = self.chars.next().unwrap();
                 if symbols.len() < 64 {
-                    symbols.push(ch.spanning(Span::new(location)));
+                    symbols.push(ch.spanning(Span::new(self.location)));
                 } else {
                     if ignored_start.is_none() {
-                        ignored_start = Some(location);
+                        ignored_start = Some(self.location);
                     }
                 }
-                location += 1;
+                self.location += 1;
             }
         }
 
-        words.push(Word::new(&symbols));
+        let word = Word::new(&symbols);
 
         if let Some(ignored_location) = ignored_start {
-            warnings.push(Warning::TokenTrimmed {
+            let warning = Warning::TokenTrimmed {
                 span: Span {
                     from: ignored_location,
-                    to: location,
+                    to: self.location,
                 }
                 .into(),
-            });
+            };
+            Some(Ok((word, Some(warning))))
+        } else {
+            Some(Ok((word, None)))
         }
     }
-
-    Ok((words, warnings))
 }
