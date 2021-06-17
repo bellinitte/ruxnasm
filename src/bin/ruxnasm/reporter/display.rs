@@ -404,6 +404,12 @@ impl From<ruxnasm::Error> for FileDiagnostic {
                             span: chain[0].1.clone(),
                             message: format!("`{}` invokes itself here", chain[0].0),
                         })
+                        .with_label(Label {
+                            style: LabelStyle::Secondary,
+                            span: span,
+                            message: format!("initial invocation of macro `{}` here", chain[0].0),
+                        })
+                        .with_note(format!("cannot invoke macro `{}`, because it would have infinite size if it were to be expanded", chain[0].0))
                 } else {
                     let (first_name, _) = chain.first().unwrap();
                     let (second_name, second_span) = chain.get(1).unwrap();

@@ -50,9 +50,9 @@ pub fn assemble(source: &[u8]) -> Result<(Vec<u8>, Vec<Warning>), (Vec<Error>, V
             Some((macro_words, macro_name, invoke_span, previous_words)) => {
                 stack.push(previous_words);
                 stack.push(macro_words);
-                if let Some((_, span)) = chain.iter().find(|(n, _)| *n == macro_name) {
+                if let Some(position) = chain.iter().position(|(n, _)| *n == macro_name) {
                     let mut actual_chain = vec![(macro_name.clone(), invoke_span)];
-                    actual_chain.extend(chain.iter().skip(1).cloned());
+                    actual_chain.extend(chain.iter().skip(position + 1).cloned());
                     return Err((
                         vec![Error::RecursiveMacro {
                             chain: actual_chain
@@ -64,7 +64,7 @@ pub fn assemble(source: &[u8]) -> Result<(Vec<u8>, Vec<Warning>), (Vec<Error>, V
                                     )
                                 })
                                 .collect(),
-                            span: (*span).into(),
+                            span: chain[position].1.into(),
                         }],
                         warnings,
                     ));
