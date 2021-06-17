@@ -395,6 +395,43 @@ impl From<ruxnasm::Error> for FileDiagnostic {
                     span,
                     message: String::new(),
                 }),
+            ruxnasm::Error::RecursiveMacro { chain, span } => {
+                if chain.len() == 1 {
+                    FileDiagnostic::error()
+                        .with_message("found a recursive macro")
+                        .with_label(Label {
+                            style: LabelStyle::Primary,
+                            span: chain[0].1.clone(),
+                            message: format!("`{}` invokes itself here", chain[0].0),
+                        })
+                } else {
+                    let (first_name, _) = chain.first().unwrap();
+                    let (second_name, second_span) = chain.get(1).unwrap();
+                    let mut diagnostic = FileDiagnostic::error()
+                        .with_message("found a recursive macro chain")
+                        .with_label(Label {
+                            style: LabelStyle::Primary,
+                            span: second_span.clone(),
+                            message: format!("`{}` invokes `{}` here", first_name, second_name),
+                        });
+                    for ((current_name, _), (next_name, next_span)) in
+                        chain.iter().skip(1).zip(chain.iter().cycle().skip(2))
+                    {
+                        diagnostic = diagnostic.with_label(Label {
+                            style: LabelStyle::Primary,
+                            span: next_span.clone(),
+                            message: format!("`{}` invokes `{}` here", current_name, next_name),
+                        })
+                    }
+                    diagnostic
+                        .with_label(Label {
+                            style: LabelStyle::Secondary,
+                            span: span,
+                            message: format!("initial invocation of macro `{}` here", first_name),
+                        })
+                        .with_note(format!("cannot invoke macro `{}`, because it would have infinite size if it were to be expanded", first_name))
+                }
+            }
         }
     }
 }

@@ -76,7 +76,7 @@ impl<'words> Walker<'words> {
     pub fn walk(
         &mut self,
         words: &[&'words Word],
-    ) -> Option<(Vec<&'words Word>, Vec<&'words Word>)> {
+    ) -> Option<(Vec<&'words Word>, Vec<u8>, Span, Vec<&'words Word>)> {
         let mut words = words.iter().peekable();
 
         loop {
@@ -143,7 +143,12 @@ impl<'words> Walker<'words> {
                         } => match self.macro_definitions.get(name) {
                             Some((items, _)) => {
                                 self.unused_macros.remove(name);
-                                return Some((items.clone(), words.copied().collect()));
+                                return Some((
+                                    items.clone(),
+                                    name.clone(),
+                                    *span,
+                                    words.copied().collect(),
+                                ));
                             }
                             None => self.errors.push(Error::MacroUndefined {
                                 name: String::from_utf8_lossy(&name).into_owned(),

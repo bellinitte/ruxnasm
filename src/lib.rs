@@ -43,14 +43,38 @@ pub fn assemble(source: &[u8]) -> Result<(Vec<u8>, Vec<Warning>), (Vec<Error>, V
     let mut walker = walker::Walker::new();
     let words: Vec<&Word> = words.iter().collect();
     let mut stack: Vec<Vec<&Word>> = vec![words];
+    let mut chain: Vec<(Vec<u8>, Span)> = Vec::new();
 
     while let Some(top) = stack.pop() {
         match walker.walk(&top) {
-            Some((new_words, previous_words)) => {
+            Some((macro_words, macro_name, invoke_span, previous_words)) => {
                 stack.push(previous_words);
-                stack.push(new_words);
+                stack.push(macro_words);
+                if let Some((_, span)) = chain.iter().find(|(n, _)| *n == macro_name) {
+                    let mut actual_chain = vec![(macro_name.clone(), invoke_span)];
+                    actual_chain.extend(chain.iter().skip(1).cloned());
+                    return Err((
+                        vec![Error::RecursiveMacro {
+                            chain: actual_chain
+                                .into_iter()
+                                .map(|(macro_name, macro_span)| {
+                                    (
+                                        String::from_utf8_lossy(&macro_name).into_owned(),
+                                        macro_span.into(),
+                                    )
+                                })
+                                .collect(),
+                            span: (*span).into(),
+                        }],
+                        warnings,
+                    ));
+                } else {
+                    chain.push((macro_name, invoke_span));
+                }
             }
-            None => (),
+            None => {
+                chain.pop();
+            }
         }
     }
 

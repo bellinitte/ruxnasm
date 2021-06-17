@@ -538,4 +538,8 @@ pub enum Error {
         /// Span of the tokens that exceed the maximum size.
         span: Range<usize>,
     },
+    RecursiveMacro {
+        chain: Vec<(String, Range<usize>)>,
+        span: Range<usize>,
+    },
 }
