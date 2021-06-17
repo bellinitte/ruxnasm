@@ -21,8 +21,8 @@ impl Binary {
     pub fn new() -> Self {
         Self {
             data: [0; 256 * 256 - 256],
-            pointer: 0,
-            length: 0,
+            pointer: 256,
+            length: 256,
         }
     }
 
@@ -234,7 +234,7 @@ pub(crate) fn emit(
                 node: Statement::RawWord(word),
                 ..
             } => {
-                for byte in word.bytes() {
+                for byte in word {
                     binary.push_byte(byte);
                 }
             }

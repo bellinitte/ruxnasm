@@ -1,24 +1,22 @@
 pub use crate::anomalies::{Error, Warning};
 use crate::{tokenizer::Word, Location, Span, Spanned, Spanning};
 
-const WHITESPACES: [char; 6] = [' ', '\t', '\n', 0x0b as char, 0x0c as char, '\r'];
-const DELIMITERS: [char; 6] = ['(', ')', '[', ']', '{', '}'];
+const WHITESPACES: [u8; 6] = [b' ', b'\t', b'\n', 0x0b, 0x0c, b'\r'];
+const DELIMITERS: [u8; 6] = [b'(', b')', b'[', b']', b'{', b'}'];
 
-fn is_delimiter(x: Option<&char>) -> bool {
+fn is_delimiter(x: Option<&u8>) -> bool {
     match x {
         Some(ch) => WHITESPACES.contains(ch) || DELIMITERS.contains(ch),
         None => true,
     }
 }
 
-fn is_whitespace(ch: char) -> bool {
+fn is_whitespace(ch: u8) -> bool {
     WHITESPACES.contains(&ch)
 }
 
-pub(crate) fn scan<'a>(
-    input_file_contents: &'a str,
-) -> Result<(Vec<Word>, Vec<crate::Warning>), crate::Error> {
-    let mut chars = input_file_contents.chars().peekable();
+pub(crate) fn scan<'a>(input_file_contents: &'a [u8]) -> Result<(Vec<Word>, Vec<Warning>), Error> {
+    let mut chars = input_file_contents.into_iter().copied().peekable();
     let mut location = Location { offset: 0 };
     let mut words = Vec::new();
     let mut warnings = Vec::new();
@@ -30,18 +28,18 @@ pub(crate) fn scan<'a>(
                     location += 1;
                     continue;
                 }
-                Some('(') => {
+                Some(b'(') => {
                     let comment_start_location = location;
                     location += 1;
                     let mut comment_level: usize = 1;
 
                     'comment: loop {
                         match chars.next() {
-                            Some('(') => {
+                            Some(b'(') => {
                                 location += 1;
                                 comment_level += 1;
                             }
-                            Some(')') => {
+                            Some(b')') => {
                                 location += 1;
                                 comment_level -= 1;
                                 if comment_level == 0 {
@@ -59,7 +57,7 @@ pub(crate) fn scan<'a>(
                         }
                     }
                 }
-                Some(')') => {
+                Some(b')') => {
                     return Err(Error::NoMatchingOpeningParenthesis {
                         span: Span::new(location).into(),
                     })
@@ -69,13 +67,13 @@ pub(crate) fn scan<'a>(
             }
         };
 
-        let mut symbols: Vec<Spanned<char>> = Vec::new();
-        symbols.push(ch.spanning(Span::new(location)));
+        let mut symbols: Vec<Spanned<u8>> = Vec::new();
+        symbols.push((ch).spanning(Span::new(location)));
         location += 1;
         let mut ignored_start: Option<Location> = None;
 
         // TODO: Refactor the string scanning
-        if ch == '"' || ch == '\'' {
+        if ch == b'"' || ch == b'\'' {
             while chars.peek().is_none() || !is_whitespace(*chars.peek().unwrap()) {
                 let ch = chars.next().unwrap();
                 if symbols.len() < 64 {

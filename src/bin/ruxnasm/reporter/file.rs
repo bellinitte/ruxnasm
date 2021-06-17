@@ -1,4 +1,5 @@
 use codespan_reporting::files;
+use std::borrow::Cow;
 use std::ops::Range;
 use std::path::Path;
 
@@ -7,14 +8,15 @@ pub struct File<'a> {
     /// The name of the file.
     name: String,
     /// The source code of the file.
-    source: &'a str,
+    source: Cow<'a, str>,
     /// The starting byte indices in the source code.
     line_starts: Vec<usize>,
 }
 
 impl<'a> File<'a> {
-    pub fn new(name: &'a Path, source: &'a str) -> Self {
+    pub fn new(name: &'a Path, source: &'a [u8]) -> Self {
         let name = name.to_string_lossy().into_owned();
+        let source = String::from_utf8_lossy(source);
         let line_starts = files::line_starts(&source).collect();
 
         Self {

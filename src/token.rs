@@ -14,20 +14,20 @@ pub(crate) enum Statement {
     RawHexByte(u8),
     RawHexShort(u16),
     RawChar(u8),
-    RawWord(String),
+    RawWord(Vec<u8>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum ScopedIdentifier {
-    Label(String),
-    Sublabel(String, String),
+    Label(Vec<u8>),
+    Sublabel(Vec<u8>, Vec<u8>),
 }
 
 impl ScopedIdentifier {
     pub fn is_captital(&self) -> bool {
         match self {
-            Self::Label(name) => name.chars().next().unwrap().is_uppercase(),
-            Self::Sublabel(name, _) => name.chars().next().unwrap().is_uppercase(),
+            Self::Label(name) => name.iter().next().unwrap().is_ascii_uppercase(),
+            Self::Sublabel(name, _) => name.iter().next().unwrap().is_ascii_uppercase(),
         }
     }
 }
@@ -35,9 +35,13 @@ impl ScopedIdentifier {
 impl ToString for ScopedIdentifier {
     fn to_string(&self) -> String {
         match self {
-            Self::Label(name) => name.to_owned(),
+            Self::Label(name) => String::from_utf8_lossy(name).into_owned(),
             Self::Sublabel(label_name, sublabel_name) => {
-                format!("{}/{}", label_name, sublabel_name)
+                format!(
+                    "{}/{}",
+                    String::from_utf8_lossy(label_name),
+                    String::from_utf8_lossy(sublabel_name)
+                )
             }
         }
     }
@@ -50,12 +54,12 @@ pub(crate) enum Token {
     OpeningBrace,
     ClosingBrace,
     Instruction(Instruction),
-    MacroDefine(String),
-    MacroInvoke(String),
+    MacroDefine(Vec<u8>),
+    MacroInvoke(Vec<u8>),
     PadAbsolute(u16),
     PadRelative(u16),
-    LabelDefine(String),
-    SublabelDefine(String),
+    LabelDefine(Vec<u8>),
+    SublabelDefine(Vec<u8>),
     LiteralZeroPageAddress(Identifier),
     LiteralRelativeAddress(Identifier),
     LiteralAbsoluteAddress(Identifier),
@@ -65,12 +69,12 @@ pub(crate) enum Token {
     RawHexByte(u8),
     RawHexShort(u16),
     RawChar(u8),
-    RawWord(String),
+    RawWord(Vec<u8>),
 }
 
 #[derive(Debug, Clone)]
 pub(crate) enum Identifier {
-    Label(String),
-    Sublabel(String),
-    Path(String, String),
+    Label(Vec<u8>),
+    Sublabel(Vec<u8>),
+    Path(Vec<u8>, Vec<u8>),
 }

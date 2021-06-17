@@ -19,11 +19,11 @@ pub(crate) enum Word {
 }
 
 impl Word {
-    pub(crate) fn new(symbols: &[Spanned<char>]) -> Self {
+    pub(crate) fn new(symbols: &[Spanned<u8>]) -> Self {
         debug_assert!({
-            const WHITESPACES: [char; 6] = [' ', '\t', '\n', 0x0b as char, 0x0c as char, '\r'];
+            const WHITESPACES: [u8; 6] = [b' ', b'\t', b'\n', 0x0b, 0x0c, b'\r'];
 
-            let chars: Vec<char> = symbols.iter().map(|Spanned { node: ch, .. }| *ch).collect();
+            let chars: Vec<u8> = symbols.iter().map(|Spanned { node: ch, .. }| *ch).collect();
             WHITESPACES.iter().all(|ch| !chars.contains(ch))
         });
 
@@ -37,17 +37,21 @@ impl Word {
     }
 }
 
-fn tokenize(word: &[Spanned<char>]) -> Result<(Spanned<Token>, Vec<Warning>), Error> {
+fn tokenize(word: &[Spanned<u8>]) -> Result<(Spanned<Token>, Vec<Warning>), Error> {
     match word.first().cloned().unwrap() {
-        Spanned { node: '[', span } => {
+        Spanned { node: b'[', span } => {
             return Ok((Token::OpeningBracket.spanning(span), Vec::new()))
         }
-        Spanned { node: ']', span } => {
+        Spanned { node: b']', span } => {
             return Ok((Token::ClosingBracket.spanning(span), Vec::new()))
         }
-        Spanned { node: '{', span } => return Ok((Token::OpeningBrace.spanning(span), Vec::new())),
-        Spanned { node: '}', span } => return Ok((Token::ClosingBrace.spanning(span), Vec::new())),
-        Spanned { node: '%', span } => match parse_macro(span, &word[1..]) {
+        Spanned { node: b'{', span } => {
+            return Ok((Token::OpeningBrace.spanning(span), Vec::new()))
+        }
+        Spanned { node: b'}', span } => {
+            return Ok((Token::ClosingBrace.spanning(span), Vec::new()))
+        }
+        Spanned { node: b'%', span } => match parse_macro(span, &word[1..]) {
             Ok(name) => {
                 return Ok((
                     Token::MacroDefine(name).spanning(to_span(word).unwrap()),
@@ -56,45 +60,45 @@ fn tokenize(word: &[Spanned<char>]) -> Result<(Spanned<Token>, Vec<Warning>), Er
             }
             Err(err) => Err(err),
         },
-        Spanned { node: '|', span } => hex_number::parse_hex_number_unconstrained(&word[1..])
+        Spanned { node: b'|', span } => hex_number::parse_hex_number_unconstrained(&word[1..])
             .map_err(|err| match err {
                 hex_number::Error2::DigitExpected => Error::HexNumberExpected { span: span.into() },
                 hex_number::Error2::DigitInvalid { digit, span } => Error::HexDigitInvalid {
                     digit,
-                    number: to_string(&word[1..]),
+                    number: String::from_utf8_lossy(&to_string(&word[1..])).into_owned(),
                     span: span.into(),
                 },
                 hex_number::Error2::TooLong { length } => Error::HexNumberTooLong {
                     length,
-                    number: to_string(&word[1..]),
+                    number: String::from_utf8_lossy(&to_string(&word[1..])).into_owned(),
                     span: to_span(&word[1..]).unwrap().into(),
                 },
             })
             .map(|value| Token::PadAbsolute(value))
             .map(|token| (token.spanning(to_span(word).unwrap()), Vec::new())),
-        Spanned { node: '$', span } => hex_number::parse_hex_number_unconstrained(&word[1..])
+        Spanned { node: b'$', span } => hex_number::parse_hex_number_unconstrained(&word[1..])
             .map_err(|err| match err {
                 hex_number::Error2::DigitExpected => Error::HexNumberExpected { span: span.into() },
                 hex_number::Error2::DigitInvalid { digit, span } => Error::HexDigitInvalid {
                     digit,
-                    number: to_string(&word[1..]),
+                    number: String::from_utf8_lossy(&to_string(&word[1..])).into_owned(),
                     span: span.into(),
                 },
                 hex_number::Error2::TooLong { length } => Error::HexNumberTooLong {
                     length,
-                    number: to_string(&word[1..]),
+                    number: String::from_utf8_lossy(&to_string(&word[1..])).into_owned(),
                     span: to_span(&word[1..]).unwrap().into(),
                 },
             })
             .map(|value| Token::PadRelative(value))
             .map(|token| (token.spanning(to_span(word).unwrap()), Vec::new())),
-        Spanned { node: '@', span } => {
+        Spanned { node: b'@', span } => {
             if !word[1..].is_empty() {
-                if word[1].node != '&' {
+                if word[1].node != b'&' {
                     if let Some(position) = word[1..]
                         .iter()
                         .map(|Spanned { node: ch, .. }| *ch)
-                        .position(|c| c == '/')
+                        .position(|c| c == b'/')
                     {
                         Err(Error::SlashInLabelOrSublabel {
                             span: word[1 + position].span.into(),
@@ -115,12 +119,12 @@ fn tokenize(word: &[Spanned<char>]) -> Result<(Spanned<Token>, Vec<Warning>), Er
                 Err(Error::LabelExpected { span: span.into() })
             }
         }
-        Spanned { node: '&', span } => {
+        Spanned { node: b'&', span } => {
             if !word[1..].is_empty() {
                 if let Some(position) = word[1..]
                     .iter()
                     .map(|Spanned { node: ch, .. }| *ch)
-                    .position(|c| c == '/')
+                    .position(|c| c == b'/')
                 {
                     Err(Error::SlashInLabelOrSublabel {
                         span: word[1 + position].span.into(),
@@ -136,7 +140,7 @@ fn tokenize(word: &[Spanned<char>]) -> Result<(Spanned<Token>, Vec<Warning>), Er
                 Err(Error::LabelExpected { span: span.into() })
             }
         }
-        Spanned { node: '#', span } => match hex_number::parse_hex_number(&word[1..]) {
+        Spanned { node: b'#', span } => match hex_number::parse_hex_number(&word[1..]) {
             Ok(hex_number::HexNumber::Byte(value)) => Ok(Token::LiteralHexByte(value)),
             Ok(hex_number::HexNumber::Short(value)) => Ok(Token::LiteralHexShort(value)),
             Err(hex_number::Error::DigitExpected) => {
@@ -144,7 +148,7 @@ fn tokenize(word: &[Spanned<char>]) -> Result<(Spanned<Token>, Vec<Warning>), Er
             }
             Err(hex_number::Error::DigitInvalid { digit, span }) => Err(Error::HexDigitInvalid {
                 digit,
-                number: to_string(&word[1..]),
+                number: String::from_utf8_lossy(&to_string(&word[1..])).into_owned(),
                 span: span.into(),
             }),
             Err(hex_number::Error::UnevenLength { length: 1 }) => {
@@ -152,17 +156,17 @@ fn tokenize(word: &[Spanned<char>]) -> Result<(Spanned<Token>, Vec<Warning>), Er
             }
             Err(hex_number::Error::UnevenLength { length }) => Err(Error::HexNumberUnevenLength {
                 length,
-                number: to_string(&word[1..]),
+                number: String::from_utf8_lossy(&to_string(&word[1..])).into_owned(),
                 span: to_span(&word[1..]).unwrap().into(),
             }),
             Err(hex_number::Error::TooLong { length }) => Err(Error::HexNumberTooLong {
                 length,
-                number: to_string(&word[1..]),
+                number: String::from_utf8_lossy(&to_string(&word[1..])).into_owned(),
                 span: to_span(&word[1..]).unwrap().into(),
             }),
         }
         .map(|token| (token.spanning(to_span(word).unwrap()), Vec::new())),
-        Spanned { node: '.', span } => match parse_identifier(span, &word[1..]) {
+        Spanned { node: b'.', span } => match parse_identifier(span, &word[1..]) {
             Ok(name) => {
                 return Ok((
                     Token::LiteralZeroPageAddress(name).spanning(to_span(word).unwrap()),
@@ -171,7 +175,7 @@ fn tokenize(word: &[Spanned<char>]) -> Result<(Spanned<Token>, Vec<Warning>), Er
             }
             Err(err) => Err(err),
         },
-        Spanned { node: ',', span } => match parse_identifier(span, &word[1..]) {
+        Spanned { node: b',', span } => match parse_identifier(span, &word[1..]) {
             Ok(name) => {
                 return Ok((
                     Token::LiteralRelativeAddress(name).spanning(to_span(word).unwrap()),
@@ -180,7 +184,7 @@ fn tokenize(word: &[Spanned<char>]) -> Result<(Spanned<Token>, Vec<Warning>), Er
             }
             Err(err) => Err(err),
         },
-        Spanned { node: ';', span } => match parse_identifier(span, &word[1..]) {
+        Spanned { node: b';', span } => match parse_identifier(span, &word[1..]) {
             Ok(name) => {
                 return Ok((
                     Token::LiteralAbsoluteAddress(name).spanning(to_span(word).unwrap()),
@@ -189,7 +193,7 @@ fn tokenize(word: &[Spanned<char>]) -> Result<(Spanned<Token>, Vec<Warning>), Er
             }
             Err(err) => Err(err),
         },
-        Spanned { node: ':', span } => match parse_identifier(span, &word[1..]) {
+        Spanned { node: b':', span } => match parse_identifier(span, &word[1..]) {
             Ok(name) => {
                 return Ok((
                     Token::RawAddress(name).spanning(to_span(word).unwrap()),
@@ -198,8 +202,8 @@ fn tokenize(word: &[Spanned<char>]) -> Result<(Spanned<Token>, Vec<Warning>), Er
             }
             Err(err) => Err(err),
         },
-        Spanned { node: '\'', span } => {
-            let bytes: Vec<u8> = to_string(&word[1..]).bytes().collect();
+        Spanned { node: b'\'', span } => {
+            let bytes: Vec<u8> = to_string(&word[1..]);
             match bytes.len() {
                 0 => Err(Error::CharacterExpected { span: span.into() }),
                 1 => Ok((
@@ -215,7 +219,7 @@ fn tokenize(word: &[Spanned<char>]) -> Result<(Spanned<Token>, Vec<Warning>), Er
                 }
             }
         }
-        Spanned { node: '"', .. } => {
+        Spanned { node: b'"', .. } => {
             return Ok((
                 Token::RawWord(to_string(&word[1..])).spanning(to_span(word).unwrap()),
                 Vec::new(),
@@ -239,28 +243,22 @@ fn tokenize(word: &[Spanned<char>]) -> Result<(Spanned<Token>, Vec<Warning>), Er
                 ));
             };
             return Ok((
-                to_spanned_string(word)
-                    .unwrap()
-                    .map(|s| (Token::MacroInvoke(s))),
+                Token::MacroInvoke(to_string(word)).spanning(to_span(word).unwrap()),
                 Vec::new(),
             ));
         }
     }
 }
 
-fn to_string(symbols: &[Spanned<char>]) -> String {
+fn to_string(symbols: &[Spanned<u8>]) -> Vec<u8> {
     symbols.iter().map(|Spanned { node: ch, .. }| *ch).collect()
 }
 
-fn to_span(symbols: &[Spanned<char>]) -> Option<Span> {
+fn to_span(symbols: &[Spanned<u8>]) -> Option<Span> {
     Some(Span::combine(&symbols.first()?.span, &symbols.last()?.span))
 }
 
-fn to_spanned_string(symbols: &[Spanned<char>]) -> Option<Spanned<String>> {
-    to_span(symbols).map(|span| to_string(symbols).spanning(span))
-}
-
-fn parse_macro(rune_span: Span, symbols: &[Spanned<char>]) -> Result<String, Error> {
+fn parse_macro(rune_span: Span, symbols: &[Spanned<u8>]) -> Result<Vec<u8>, Error> {
     if symbols.is_empty() {
         return Err(Error::MacroNameExpected {
             span: rune_span.into(),
@@ -270,27 +268,27 @@ fn parse_macro(rune_span: Span, symbols: &[Spanned<char>]) -> Result<String, Err
     if let Ok(_) = hex_number::parse_hex_number(symbols) {
         return Err(Error::MacroCannotBeAHexNumber {
             span: to_span(symbols).unwrap().into(),
-            number: to_string(symbols),
+            number: String::from_utf8_lossy(&to_string(symbols)).into_owned(),
         });
     }
     if let Some(_) = parse_instruction(symbols) {
         return Err(Error::MacroCannotBeAnInstruction {
             span: to_span(symbols).unwrap().into(),
-            instruction: to_string(symbols),
+            instruction: String::from_utf8_lossy(&to_string(symbols)).into_owned(),
         });
     }
 
     Ok(to_string(symbols))
 }
 
-fn parse_identifier(rune_span: Span, symbols: &[Spanned<char>]) -> Result<Identifier, Error> {
+fn parse_identifier(rune_span: Span, symbols: &[Spanned<u8>]) -> Result<Identifier, Error> {
     if symbols.is_empty() {
         return Err(Error::IdentifierExpected {
             span: rune_span.into(),
         });
     }
 
-    if let Some(Spanned { node: '&', span }) = symbols.first() {
+    if let Some(Spanned { node: b'&', span }) = symbols.first() {
         let rune_span = Span::combine(&rune_span, &span);
         if symbols[1..].is_empty() {
             return Err(Error::SublabelExpected {
@@ -303,13 +301,13 @@ fn parse_identifier(rune_span: Span, symbols: &[Spanned<char>]) -> Result<Identi
     match symbols
         .iter()
         .map(|Spanned { node: ch, .. }| *ch)
-        .position(|c| c == '/')
+        .position(|c| c == b'/')
     {
         Some(position) => {
             if let Some(second_position) = symbols[position + 1..]
                 .iter()
                 .map(|Spanned { node: ch, .. }| *ch)
-                .position(|c| c == '/')
+                .position(|c| c == b'/')
             {
                 return Err(Error::MoreThanOneSlashInIdentifier {
                     span: symbols[position + 1 + second_position].span.into(),
@@ -348,44 +346,44 @@ fn parse_identifier(rune_span: Span, symbols: &[Spanned<char>]) -> Result<Identi
 }
 
 /// `symbols` must not be empty.
-fn parse_instruction(symbols: &[Spanned<char>]) -> Option<(Instruction, Vec<Warning>)> {
+fn parse_instruction(symbols: &[Spanned<u8>]) -> Option<(Instruction, Vec<Warning>)> {
     if symbols.len() < 3 {
         return None;
     }
 
-    let instruction_kind = match to_string(&symbols[..3]).as_str() {
-        "BRK" => Some(InstructionKind::Break),
-        "LIT" => Some(InstructionKind::Literal),
-        "NOP" => Some(InstructionKind::NoOperation),
-        "POP" => Some(InstructionKind::Pop),
-        "DUP" => Some(InstructionKind::Duplicate),
-        "SWP" => Some(InstructionKind::Swap),
-        "OVR" => Some(InstructionKind::Over),
-        "ROT" => Some(InstructionKind::Rotate),
-        "EQU" => Some(InstructionKind::Equal),
-        "NEQ" => Some(InstructionKind::NotEqual),
-        "GTH" => Some(InstructionKind::GreaterThan),
-        "LTH" => Some(InstructionKind::LesserThan),
-        "JMP" => Some(InstructionKind::Jump),
-        "JCN" => Some(InstructionKind::JumpCondition),
-        "JSR" => Some(InstructionKind::JumpStash),
-        "STH" => Some(InstructionKind::Stash),
-        "LDZ" => Some(InstructionKind::LoadZeroPage),
-        "STZ" => Some(InstructionKind::StoreZeroPage),
-        "LDR" => Some(InstructionKind::LoadRelative),
-        "STR" => Some(InstructionKind::StoreRelative),
-        "LDA" => Some(InstructionKind::LoadAbsolute),
-        "STA" => Some(InstructionKind::StoreAbsolute),
-        "DEI" => Some(InstructionKind::DeviceIn),
-        "DEO" => Some(InstructionKind::DeviceOut),
-        "ADD" => Some(InstructionKind::Add),
-        "SUB" => Some(InstructionKind::Subtract),
-        "MUL" => Some(InstructionKind::Multiply),
-        "DIV" => Some(InstructionKind::Divide),
-        "AND" => Some(InstructionKind::And),
-        "ORA" => Some(InstructionKind::Or),
-        "EOR" => Some(InstructionKind::ExclusiveOr),
-        "SFT" => Some(InstructionKind::Shift),
+    let instruction_kind = match to_string(&symbols[..3]).as_slice() {
+        b"BRK" => Some(InstructionKind::Break),
+        b"LIT" => Some(InstructionKind::Literal),
+        b"NOP" => Some(InstructionKind::NoOperation),
+        b"POP" => Some(InstructionKind::Pop),
+        b"DUP" => Some(InstructionKind::Duplicate),
+        b"SWP" => Some(InstructionKind::Swap),
+        b"OVR" => Some(InstructionKind::Over),
+        b"ROT" => Some(InstructionKind::Rotate),
+        b"EQU" => Some(InstructionKind::Equal),
+        b"NEQ" => Some(InstructionKind::NotEqual),
+        b"GTH" => Some(InstructionKind::GreaterThan),
+        b"LTH" => Some(InstructionKind::LesserThan),
+        b"JMP" => Some(InstructionKind::Jump),
+        b"JCN" => Some(InstructionKind::JumpCondition),
+        b"JSR" => Some(InstructionKind::JumpStash),
+        b"STH" => Some(InstructionKind::Stash),
+        b"LDZ" => Some(InstructionKind::LoadZeroPage),
+        b"STZ" => Some(InstructionKind::StoreZeroPage),
+        b"LDR" => Some(InstructionKind::LoadRelative),
+        b"STR" => Some(InstructionKind::StoreRelative),
+        b"LDA" => Some(InstructionKind::LoadAbsolute),
+        b"STA" => Some(InstructionKind::StoreAbsolute),
+        b"DEI" => Some(InstructionKind::DeviceIn),
+        b"DEO" => Some(InstructionKind::DeviceOut),
+        b"ADD" => Some(InstructionKind::Add),
+        b"SUB" => Some(InstructionKind::Subtract),
+        b"MUL" => Some(InstructionKind::Multiply),
+        b"DIV" => Some(InstructionKind::Divide),
+        b"AND" => Some(InstructionKind::And),
+        b"ORA" => Some(InstructionKind::Or),
+        b"EOR" => Some(InstructionKind::ExclusiveOr),
+        b"SFT" => Some(InstructionKind::Shift),
         _ => None,
     }?;
 
@@ -396,33 +394,36 @@ fn parse_instruction(symbols: &[Spanned<char>]) -> Option<(Instruction, Vec<Warn
 
     for Spanned { node: ch, span } in &symbols[3..] {
         match ch {
-            'k' => {
+            b'k' => {
                 if let Some(other_span) = keep {
                     warnings.push(Warning::InstructionModeDefinedMoreThanOnce {
                         instruction_mode: 'k',
-                        instruction: to_string(&symbols[..3]),
+                        instruction: String::from_utf8_lossy(&to_string(&symbols[..3]))
+                            .into_owned(),
                         span: (*span).into(),
                         other_span: other_span.into(),
                     });
                 }
                 keep = Some(*span);
             }
-            'r' => {
+            b'r' => {
                 if let Some(other_span) = r#return {
                     warnings.push(Warning::InstructionModeDefinedMoreThanOnce {
                         instruction_mode: 'r',
-                        instruction: to_string(&symbols[..3]),
+                        instruction: String::from_utf8_lossy(&to_string(&symbols[..3]))
+                            .into_owned(),
                         span: (*span).into(),
                         other_span: other_span.into(),
                     });
                 }
                 r#return = Some(*span);
             }
-            '2' => {
+            b'2' => {
                 if let Some(other_span) = short {
                     warnings.push(Warning::InstructionModeDefinedMoreThanOnce {
                         instruction_mode: '2',
-                        instruction: to_string(&symbols[..3]),
+                        instruction: String::from_utf8_lossy(&to_string(&symbols[..3]))
+                            .into_owned(),
                         span: (*span).into(),
                         other_span: other_span.into(),
                     });

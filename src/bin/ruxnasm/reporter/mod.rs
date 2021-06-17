@@ -31,7 +31,7 @@ impl VoidReporter {
         }
     }
 
-    pub fn promote<'a>(self, file_path: &'a Path, file_contents: &'a str) -> FileReporter<'a> {
+    pub fn promote<'a>(self, file_path: &'a Path, file_contents: &'a [u8]) -> FileReporter<'a> {
         FileReporter {
             file: File::new(file_path, file_contents),
             writer: self.writer,

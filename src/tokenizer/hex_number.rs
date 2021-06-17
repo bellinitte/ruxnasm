@@ -12,7 +12,7 @@ pub(crate) enum Error {
     TooLong { length: usize },
 }
 
-pub(crate) fn parse_hex_number(symbols: &[Spanned<char>]) -> Result<HexNumber, Error> {
+pub(crate) fn parse_hex_number(symbols: &[Spanned<u8>]) -> Result<HexNumber, Error> {
     let mut value: usize = 0;
 
     for Spanned { node: ch, span } in symbols {
@@ -20,7 +20,7 @@ pub(crate) fn parse_hex_number(symbols: &[Spanned<char>]) -> Result<HexNumber, E
             value = (value << 4) + to_hex_digit(*ch).unwrap() as usize;
         } else {
             return Err(Error::DigitInvalid {
-                digit: *ch,
+                digit: *ch as char,
                 span: *span,
             });
         }
@@ -42,7 +42,7 @@ pub(crate) enum Error2 {
     TooLong { length: usize },
 }
 
-pub(crate) fn parse_hex_number_unconstrained(symbols: &[Spanned<char>]) -> Result<u16, Error2> {
+pub(crate) fn parse_hex_number_unconstrained(symbols: &[Spanned<u8>]) -> Result<u16, Error2> {
     let mut value: u16 = 0;
 
     for Spanned { node: ch, span } in symbols {
@@ -50,7 +50,7 @@ pub(crate) fn parse_hex_number_unconstrained(symbols: &[Spanned<char>]) -> Resul
             value = (value << 4) + to_hex_digit(*ch).unwrap() as u16;
         } else {
             return Err(Error2::DigitInvalid {
-                digit: *ch,
+                digit: *ch as char,
                 span: *span,
             });
         }
@@ -63,14 +63,14 @@ pub(crate) fn parse_hex_number_unconstrained(symbols: &[Spanned<char>]) -> Resul
     }
 }
 
-fn to_hex_digit(c: char) -> Option<usize> {
+fn to_hex_digit(c: u8) -> Option<usize> {
     match c {
-        '0'..='9' => Some(c as usize - '0' as usize),
-        'a'..='f' => Some(c as usize - 'a' as usize + 10),
+        b'0'..=b'9' => Some(c as usize - b'0' as usize),
+        b'a'..=b'f' => Some(c as usize - b'a' as usize + 10),
         _ => None,
     }
 }
 
-fn is_hex_digit(c: char) -> bool {
+fn is_hex_digit(c: u8) -> bool {
     to_hex_digit(c).is_some()
 }

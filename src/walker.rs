@@ -15,9 +15,9 @@ struct Environment {
     length: u16,
     opened_brackets: Vec<Span>,
     opened_braces: Vec<Span>,
-    scope: Option<String>,
-    macro_definitions: HashMap<String, (Vec<Word>, Span)>,
-    unused_macros: HashSet<String>,
+    scope: Option<Vec<u8>>,
+    macro_definitions: HashMap<Vec<u8>, (Vec<Word>, Span)>,
+    unused_macros: HashSet<Vec<u8>>,
     label_definitions: HashMap<ScopedIdentifier, (u16, Span)>,
     zeroth_page_spans: Vec<Span>,
     overflow_spans: Vec<Span>,
@@ -109,7 +109,7 @@ pub(crate) fn walk(
     for unused_macro_name in environment.unused_macros {
         let (_, span) = environment.macro_definitions[&unused_macro_name];
         warnings.push(Warning::MacroUnused {
-            name: unused_macro_name,
+            name: String::from_utf8_lossy(&unused_macro_name).into_owned(),
             span: span.into(),
         });
     }
@@ -218,7 +218,7 @@ fn walk_rec(
                             }
                         }
                         None => errors.push(Error::MacroUndefined {
-                            name: name,
+                            name: String::from_utf8_lossy(&name).into_owned(),
                             span: span.into(),
                         }),
                     },
@@ -252,7 +252,7 @@ fn walk_rec(
                             (environment.pointer, span),
                         ) {
                             errors.push(Error::LabelDefinedMoreThanOnce {
-                                name: name.clone(),
+                                name: String::from_utf8_lossy(&name).into_owned(),
                                 span: span.into(),
                                 other_span: other_span.into(),
                             });
@@ -269,14 +269,14 @@ fn walk_rec(
                                 (environment.pointer, span),
                             ) {
                                 errors.push(Error::LabelDefinedMoreThanOnce {
-                                    name,
+                                    name: String::from_utf8_lossy(&name).into_owned(),
                                     span: span.into(),
                                     other_span: other_span.into(),
                                 });
                             }
                         }
                         None => errors.push(Error::SublabelDefinedWithoutScope {
-                            name,
+                            name: String::from_utf8_lossy(&name).into_owned(),
                             span: span.into(),
                         }),
                     },
@@ -366,7 +366,7 @@ fn walk_rec(
                         node: Token::RawWord(word),
                         span,
                     } => {
-                        environment.push_bytes(word.bytes().len() as u16, span);
+                        environment.push_bytes(word.len() as u16, span);
                         statements.push(Statement::RawWord(word).spanning(span));
                     }
                 }
@@ -390,7 +390,7 @@ fn walk_rec(
 }
 
 fn walk_macro_definition(
-    name: String,
+    name: Vec<u8>,
     span: Span,
     mut words: Peekable<IntoIter<Word>>,
     environment: &mut Environment,
@@ -458,7 +458,7 @@ fn walk_macro_definition(
         .insert(name.clone(), (items, span))
     {
         errors.push(Error::MacroDefinedMoreThanOnce {
-            name: name.clone(),
+            name: String::from_utf8_lossy(&name).into_owned(),
             span: span.into(),
             other_span: other_span.into(),
         });
@@ -470,7 +470,7 @@ fn walk_macro_definition(
 
 fn scope_identifier(
     identifier: Identifier,
-    scope: &Option<String>,
+    scope: &Option<Vec<u8>>,
     span: &Span,
 ) -> Result<ScopedIdentifier, Error> {
     match identifier {
@@ -479,7 +479,7 @@ fn scope_identifier(
         Identifier::Sublabel(sublabel) => match scope {
             Some(scope_name) => Ok(ScopedIdentifier::Sublabel(scope_name.to_owned(), sublabel)),
             None => Err(Error::SublabelReferencedWithoutScope {
-                name: sublabel,
+                name: String::from_utf8_lossy(&sublabel).into_owned(),
                 span: (*span).into(),
             }),
         },

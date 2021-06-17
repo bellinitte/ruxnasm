@@ -71,16 +71,6 @@ pub(crate) struct Spanned<T> {
     pub(crate) span: Span,
 }
 
-impl<T> Spanned<T> {
-    #[inline]
-    pub(crate) fn map<U, F: FnOnce(T) -> U>(self, f: F) -> Spanned<U> {
-        Spanned {
-            node: f(self.node),
-            span: self.span,
-        }
-    }
-}
-
 impl<T> fmt::Debug for Spanned<T>
 where
     T: fmt::Debug,
@@ -112,7 +102,7 @@ impl_spanning!(u64);
 impl_spanning!(usize);
 impl_spanning!(&'a str);
 impl_spanning!(Vec<u8>);
-impl_spanning!(char);
+impl_spanning!(u8);
 impl_spanning!(Instruction);
 impl_spanning!(Token);
 impl_spanning!(Identifier);

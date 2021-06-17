@@ -25,16 +25,14 @@ pub(crate) use token::{Identifier, Token};
 /// # Example
 ///
 /// ```rust
-/// let (binary, _) = ruxnasm::assemble("|0100 #02 #03 ADD").unwrap();
+/// let (binary, _) = ruxnasm::assemble(b"|0100 #02 #03 ADD").unwrap();
 ///
 /// assert_eq!(binary, [0x01, 0x02, 0x01, 0x03, 0x18]);
 /// ```
-pub fn assemble(
-    source: impl AsRef<str>,
-) -> Result<(Vec<u8>, Vec<Warning>), (Vec<Error>, Vec<Warning>)> {
+pub fn assemble(source: &[u8]) -> Result<(Vec<u8>, Vec<Warning>), (Vec<Error>, Vec<Warning>)> {
     let mut warnings = Vec::new();
 
-    let words = match scanner::scan(source.as_ref()) {
+    let words = match scanner::scan(source) {
         Ok((words, new_warnings)) => {
             warnings.extend(new_warnings);
             words
