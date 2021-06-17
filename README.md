@@ -51,7 +51,7 @@ You can build and install Ruxnasm from source using Cargo &mdash; Rust's package
 
 Besides being a command-line tool, Ruxnasm is also available as a library for the Rust programming language. It exposes the `assemble` function, which can turn a string with an Uxntal program into an Uxn binary.
 ```rust
-pub fn assemble(source: impl AsRef<str>) -> Result<Vec<u8>>
+pub fn assemble(source: &[u8]) -> Result<Vec<u8>>
 ```
 The library is available on [crates.io](https://crates.io/crates/ruxnasm) and can be included in your Cargo-enabled project like this:
 ```toml
@@ -60,7 +60,7 @@ ruxnasm = { version = "*", default-features = false } # Disable the default "bin
 ```
 and then used in your code like this:
 ```rust
-let (binary, _) = ruxnasm::assemble("|0100 #02 #03 ADD").unwrap();
+let (binary, _) = ruxnasm::assemble(b"|0100 #02 #03 ADD").unwrap();
 
 assert_eq!(binary, [0x01, 0x02, 0x01, 0x03, 0x18]);
 ```
