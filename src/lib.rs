@@ -89,7 +89,7 @@ pub fn assemble(source: &[u8]) -> Result<(Vec<u8>, Vec<Warning>), (Vec<Error>, V
         }
     };
 
-    println!("statements: {:#?}", statements);
+    // println!("statements: {:#?}", statements);
     // println!("labels: {:?}", definitions.labels.keys());
     // println!("sublabels: {:?}", definitions.sublabels.keys());
 
