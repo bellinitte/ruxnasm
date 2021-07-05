@@ -90,7 +90,7 @@ impl<'a> Iterator for Scanner<'a> {
 
         // TODO: Refactor the string scanning
         if ch == b'"' || ch == b'\'' {
-            while self.chars.peek().is_none() || !is_whitespace(*self.chars.peek().unwrap()) {
+            while self.chars.peek().is_some() && !is_whitespace(*self.chars.peek().unwrap()) {
                 let ch = self.chars.next().unwrap();
                 if symbols.len() < 64 {
                     symbols.push(ch.spanning(Span::new(self.location)));
