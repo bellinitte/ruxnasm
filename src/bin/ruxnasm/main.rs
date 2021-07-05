@@ -1,4 +1,5 @@
 use std::panic::set_hook;
+use std::process::exit;
 
 pub mod argument_parser;
 pub mod reader;
@@ -9,7 +10,7 @@ struct InternalAssemblerError {
     message: String,
 }
 
-fn try_main() {
+fn try_main() -> Result<(), ()> {
     match argument_parser::parse_arguments() {
         Ok(arguments) => match reader::read(arguments.input_file_path()) {
             Ok(input_file_contents) => {
@@ -21,10 +22,11 @@ fn try_main() {
                             reporter.emit(warning.into());
                         }
                         match writer::write(arguments.output_file_path(), &binary) {
-                            Ok(()) => (),
+                            Ok(()) => Ok(()),
                             Err(error) => {
                                 let reporter = reporter.demote();
-                                reporter.emit(error.into())
+                                reporter.emit(error.into());
+                                Err(())
                             }
                         }
                     }
@@ -35,17 +37,20 @@ fn try_main() {
                         for warning in warnings {
                             reporter.emit(warning.into());
                         }
+                        Err(())
                     }
                 }
             }
             Err(error) => {
                 let reporter = reporter::VoidReporter::new();
                 reporter.emit(error.into());
+                Err(())
             }
         },
         Err(error) => {
             let reporter = reporter::VoidReporter::new();
             reporter.emit(error.into());
+            Err(())
         }
     }
 }
@@ -59,7 +64,11 @@ fn main() {
         };
 
         reporter.emit(error.into());
+
+        exit(1);
     }));
 
-    try_main();
+    let exit_code = try_main();
+
+    exit(exit_code.is_err() as i32);
 }
