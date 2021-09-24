@@ -1,15 +1,14 @@
 use std::collections::HashSet;
 
 use crate::{
-    instruction::InstructionKind,
     span::{Span, Spanned},
     token::{ScopedIdentifier, Statement},
     walker::Definitions,
     Error, Warning,
 };
 
-const LIT: u8 = 0x01;
-const LIT2: u8 = 0x21;
+const LIT: u8 = 0x80;
+const LIT2: u8 = 0x20;
 
 struct Binary {
     data: [u8; 256 * 256 - 256],
@@ -73,40 +72,8 @@ pub(crate) fn emit(
                 node: Statement::Instruction(instruction),
                 ..
             } => {
-                let opcode = match instruction.instruction_kind {
-                    InstructionKind::Break => 0x00,
-                    InstructionKind::Literal => 0x01,
-                    InstructionKind::NoOperation => 0x02,
-                    InstructionKind::Pop => 0x03,
-                    InstructionKind::Duplicate => 0x04,
-                    InstructionKind::Swap => 0x05,
-                    InstructionKind::Over => 0x06,
-                    InstructionKind::Rotate => 0x07,
-                    InstructionKind::Equal => 0x08,
-                    InstructionKind::NotEqual => 0x09,
-                    InstructionKind::GreaterThan => 0x0a,
-                    InstructionKind::LesserThan => 0x0b,
-                    InstructionKind::Jump => 0x0c,
-                    InstructionKind::JumpCondition => 0x0d,
-                    InstructionKind::JumpStash => 0x0e,
-                    InstructionKind::Stash => 0x0f,
-                    InstructionKind::LoadZeroPage => 0x10,
-                    InstructionKind::StoreZeroPage => 0x11,
-                    InstructionKind::LoadRelative => 0x12,
-                    InstructionKind::StoreRelative => 0x13,
-                    InstructionKind::LoadAbsolute => 0x14,
-                    InstructionKind::StoreAbsolute => 0x15,
-                    InstructionKind::DeviceIn => 0x16,
-                    InstructionKind::DeviceOut => 0x17,
-                    InstructionKind::Add => 0x18,
-                    InstructionKind::Subtract => 0x19,
-                    InstructionKind::Multiply => 0x1a,
-                    InstructionKind::Divide => 0x1b,
-                    InstructionKind::And => 0x1c,
-                    InstructionKind::Or => 0x1d,
-                    InstructionKind::ExclusiveOr => 0x1e,
-                    InstructionKind::Shift => 0x1f,
-                } | ((instruction.short as u8) << 5)
+                let opcode = instruction.instruction_kind as u8
+                    | ((instruction.short as u8) << 5)
                     | ((instruction.r#return as u8) << 6)
                     | ((instruction.keep as u8) << 7);
                 binary.push_byte(opcode);

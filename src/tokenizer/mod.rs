@@ -352,9 +352,9 @@ fn parse_instruction(symbols: &[Spanned<u8>]) -> Option<(Instruction, Vec<Warnin
     }
 
     let instruction_kind = match to_string(&symbols[..3]).as_slice() {
-        b"BRK" => Some(InstructionKind::Break),
-        b"LIT" => Some(InstructionKind::Literal),
-        b"NOP" => Some(InstructionKind::NoOperation),
+        b"BRK" | b"LIT" => Some(InstructionKind::BreakOrLiteral),
+        b"INC" => Some(InstructionKind::Increment),
+        b"NIP" => Some(InstructionKind::NoOperation),
         b"POP" => Some(InstructionKind::Pop),
         b"DUP" => Some(InstructionKind::Duplicate),
         b"SWP" => Some(InstructionKind::Swap),
