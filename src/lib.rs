@@ -30,7 +30,7 @@ pub(crate) use traits::{Stockpile, UnzipCollect};
 /// ```rust
 /// let (binary, _) = ruxnasm::assemble(b"|0100 #02 #03 ADD").unwrap();
 ///
-/// assert_eq!(binary, [0x01, 0x02, 0x01, 0x03, 0x18]);
+/// assert_eq!(binary, [0x80, 0x02, 0x80, 0x03, 0x18]);
 /// ```
 pub fn assemble(source: &[u8]) -> Result<(Vec<u8>, Vec<Warning>), (Vec<Error>, Vec<Warning>)> {
     let mut warnings = Vec::new();
