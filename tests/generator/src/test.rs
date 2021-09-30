@@ -51,15 +51,20 @@ impl Test {
                     None
                 };
 
-                let actual_output = match assemble(&input) {
-                    Ok((binary, _)) => Some(binary),
-                    Err((errors, _)) => {
-                        println!("{:?}", errors);
-                        None
+                match (assemble(&input), expected_output) {
+                    (Ok((actual_binary, _)), Some(expected_binary)) => {
+                        let actual_hex_dump = pretty_hex::pretty_hex(&actual_binary);
+                        let expected_hex_dump = pretty_hex::pretty_hex(&expected_binary);
+                        diff_assert::assert_diff!(expected_hex_dump, actual_hex_dump);
+                    },
+                    (Ok((actual_binary, _)), None) => {
+                        panic!("Expected no output but received some");
                     }
-                };
-
-                assert_eq!(actual_output, expected_output);
+                    (Err((errors, _)), Some(_)) => {
+                        panic!("Expected some output but received none");
+                    }
+                    (Err(_), None) => (),
+                }
             }
         }
     }

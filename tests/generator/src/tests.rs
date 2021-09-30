@@ -1,5 +1,5 @@
 use crate::{Test, TestsMod};
-use anyhow::{Context as _, Result};
+use anyhow::{bail, Context as _, Result};
 use proc_macro2::TokenStream;
 use std::{
     fs,
@@ -13,6 +13,10 @@ pub struct Tests {
 
 impl Tests {
     pub fn discover(dir: impl AsRef<Path>) -> Result<Self> {
+        if !dir.as_ref().exists() {
+            bail!("Cound't find the test suite");
+        }
+
         let tests = fs::read_to_string(dir.as_ref().join("index"))
             .with_context(|| format!("Couldn't find the test suite's index"))?
             .lines()

@@ -28,5 +28,7 @@ bin = ["codespan-reporting"]
 codespan-reporting = { version = "0.11.1", optional = true }
 
 [dev-dependencies]
-test-case = "1.1.0"
+diff_assert = { git = "https://github.com/anixe/diff-assert.git", branch = "master" }
 generator = { path = "tests/generator" }
+pretty-hex = "0.2.1"
+test-case = "1.1.0"
