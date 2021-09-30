@@ -11,6 +11,9 @@ keywords = ["assembler", "uxn", "uxntal"]
 categories = ["command-line-utilities", "compilers"]
 exclude = [".github", ".vscode", "docs"]
 
+[workspace]
+members = ["tests/generator"]
+
 [[bin]]
 name = "ruxnasm"
 required-features = ["bin"]
@@ -26,3 +29,4 @@ codespan-reporting = { version = "0.11.1", optional = true }
 
 [dev-dependencies]
 test-case = "1.1.0"
+generator = { path = "tests/generator" }
