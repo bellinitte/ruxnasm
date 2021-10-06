@@ -54,17 +54,16 @@ impl Test {
                 match (assemble(&input), expected_output) {
                     (Ok((actual_binary, _)), Some(expected_binary)) => {
                         if actual_binary != expected_binary {
-                            let actual_hex_dump = pretty_hex::pretty_hex(&actual_binary);
-                            let expected_hex_dump = pretty_hex::pretty_hex(&expected_binary);
-                            print_diff(&expected_hex_dump, &actual_hex_dump);
-                            panic!("Found differences in outputs");
+                            let actual_hex_dump = HexDump::new(&actual_binary);
+                            let expected_hex_dump = HexDump::new(&expected_binary);
+                            pretty_assertions::assert_eq!(expected_hex_dump, actual_hex_dump);
                         }
                     },
                     (Ok((actual_binary, _)), None) => {
-                        panic!("Expected no output but received some");
+                        panic!("expected no output but received some");
                     }
                     (Err((errors, _)), Some(_)) => {
-                        panic!("Expected some output but received none");
+                        panic!("expected some output but received none");
                     }
                     (Err(_), None) => (),
                 }

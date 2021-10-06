@@ -28,8 +28,7 @@ bin = ["codespan-reporting"]
 codespan-reporting = { version = "0.11.1", optional = true }
 
 [dev-dependencies]
-difference = "2.0"
 generator = { path = "tests/generator" }
+pretty_assertions = "1.0.0"
 pretty-hex = "0.2"
-term = "0.7"
 test-case = "1.1"
