@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/karolbelina/ruxnasm/actions/workflows/ci.yml/badge.svg)](https://github.com/karolbelina/ruxnasm/actions/workflows/ci.yml)
 [![crates.io](https://img.shields.io/crates/v/ruxnasm.svg)](https://crates.io/crates/ruxnasm)
-[![docs.rs](https://docs.rs/ruxnasm/badge.svg)](https://docs.rs/ruxnasm)
+[![docs.rs](https://img.shields.io/badge/docs.rs-latest-informational.svg)](https://docs.rs/ruxnasm)
 
 Ruxnasm is an assembler for [Uxntal][uxntal] &mdash; a programming language for the [Uxn][uxn] stack-machine by [Hundred Rabbits](https://github.com/hundredrabbits). Ruxnasm strives to be an alternative to [Uxnasm][uxnasm], featuring more user-friendly error reporting, warnings, and helpful hints, reminiscent of those seen in modern compilers for languages such as Rust or Elm.
 
