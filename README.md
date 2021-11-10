@@ -74,6 +74,6 @@ This software is licensed under the MIT license.
 
 See the [LICENSE](LICENSE) file for more details.
 
-[uxn]: https://wiki.xxiivv.com/site/uxn.html
+[uxn]: https://100r.co/site/uxn.html
 [uxntal]: https://wiki.xxiivv.com/site/uxntal.html
-[uxnasm]: https://git.sr.ht/~rabbits/uxn/tree/master/item/src/uxnasm.c
+[uxnasm]: https://git.sr.ht/~rabbits/uxn/tree/main/item/src/uxnasm.c
