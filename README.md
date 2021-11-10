@@ -1,4 +1,4 @@
-> :warning: This software is slightly out-of-date. I'm currently in the middle of a rewrite which is going to improve the Rust API, add support for includes, and handle all Uxntal edge cases to make the Ruxnasm language 1:1 compatible with Uxnasm. Stay tuned!
+> :warning: This project is slightly out-of-date. I'm currently in the middle of a rewrite which is going to improve the Rust API, add support for includes, and handle all Uxntal edge cases to make the Ruxnasm language 1:1 compatible with Uxnasm. Stay tuned!
 
 # ruxnasm
 
