@@ -16,8 +16,8 @@ pub(crate) fn parse_hex_number(symbols: &[Spanned<u8>]) -> Result<HexNumber, Err
     let mut value: usize = 0;
 
     for Spanned { node: ch, span } in symbols {
-        if is_hex_digit(*ch) {
-            value = (value << 4) + to_hex_digit(*ch).unwrap() as usize;
+        if let Some(digit) = to_hex_digit(*ch) {
+            value = (value << 4) + digit as usize;
         } else {
             return Err(Error::DigitInvalid {
                 digit: *ch as char,
@@ -46,8 +46,8 @@ pub(crate) fn parse_hex_number_unconstrained(symbols: &[Spanned<u8>]) -> Result<
     let mut value: u16 = 0;
 
     for Spanned { node: ch, span } in symbols {
-        if is_hex_digit(*ch) {
-            value = (value << 4) + to_hex_digit(*ch).unwrap() as u16;
+        if let Some(digit) = to_hex_digit(*ch) {
+            value = (value << 4) + digit as u16;
         } else {
             return Err(Error2::DigitInvalid {
                 digit: *ch as char,
@@ -69,8 +69,4 @@ fn to_hex_digit(c: u8) -> Option<usize> {
         b'a'..=b'f' => Some(c as usize - b'a' as usize + 10),
         _ => None,
     }
-}
-
-fn is_hex_digit(c: u8) -> bool {
-    to_hex_digit(c).is_some()
 }
