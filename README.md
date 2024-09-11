@@ -1,4 +1,5 @@
-> **Warning** This project is very out-of-date.
+> [!WARNING]
+> This project is out-of-date and has been discontinued.
 
 # ruxnasm
 
